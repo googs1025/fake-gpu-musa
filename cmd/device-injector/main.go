@@ -19,17 +19,25 @@ var (
 	sourceHostPath  string
 	confPath        string
 	gpusuffix       string
+	vendor          string
 	mountOption     = []string{"rbind", "ro", "rprivate"}
 	overrideCommand = []string{}
 )
 
-type InjectGPUType int
+// One libfakegpu.so masquerades as each of these inside the container.
+// Per docs/mthreads-support-design.md the SO stays unified — only the
+// bind-mount destination filenames differ between vendors.
+var nvidiaLibraryFiles = []string{
+	"libcuda.so.1",
+	"libnvidia-ml.so.1",
+	"libcudart.so",
+}
 
-const (
-	injectGPUTypeNone InjectGPUType = iota
-	injectGPUTypevGPU
-	injectGPUTypeGPU
-)
+var musaLibraryFiles = []string{
+	"libmusa.so",
+	"libmusart.so",
+	"libmtml.so",
+}
 
 // an annotated mount
 type mount struct {
@@ -82,33 +90,86 @@ func findEnvWithNameAndValue(name string, env []string) (string, bool) {
 	return "", false
 }
 
+// vendorPlan describes one vendor's bind-mount intent: which library
+// filenames should be masqueraded by `sourceLib`, which env var carries
+// the config path, and which yaml on the host backs that config.
+type vendorPlan struct {
+	libsToReplace []string
+	sourceLib     string
+	configEnv     string
+	configFile    string
+}
+
 func injectMounts(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjustment) error {
 	var mounts []mount
-	injectGPU := injectGPUTypeNone
 	visibleAllDevice := false
-	switch {
-	case findEnvWithName("NVIDIA_VISIBLE_DEVICES", ctr.Env):
+
+	wantNvidia := vendor == "nvidia" || vendor == "both"
+	wantMusa := vendor == "musa" || vendor == "both"
+
+	nvRequested := false
+	musaRequested := false
+
+	if wantNvidia {
 		if env, ok := findEnvWithNameAndValue("NVIDIA_VISIBLE_DEVICES", ctr.Env); ok && env != "void" {
-			injectGPU = injectGPUTypeGPU
-			if verbose {
-				log.Infof("%s: injecting GPU...", containerName(pod, ctr))
+			nvRequested = true
+			if env == "all" {
+				visibleAllDevice = true
 			}
-		}
-		if env, ok := findEnvWithNameAndValue("NVIDIA_VISIBLE_DEVICES", ctr.Env); ok && env == "all" {
+		} else if findEnvWithName("NVIDIA_REQUIRE_CUDA", ctr.Env) &&
+			findEnvWithName("CUDA_VERSION", ctr.Env) {
+			nvRequested = true
 			visibleAllDevice = true
 		}
-	case findEnvWithName("NVIDIA_REQUIRE_CUDA", ctr.Env) && findEnvWithName("CUDA_VERSION", ctr.Env):
-		injectGPU = injectGPUTypeGPU
-		visibleAllDevice = true
-		if verbose {
-			log.Infof("%s: injecting GPU...", containerName(pod, ctr))
+	}
+	if wantMusa {
+		if env, ok := findEnvWithNameAndValue("MUSA_VISIBLE_DEVICES", ctr.Env); ok && env != "void" {
+			musaRequested = true
+			if env == "all" {
+				visibleAllDevice = true
+			}
 		}
 	}
-	filenames := []string{
-		"libcuda.so.1",
-		"libnvidia-ml.so.1",
-		"libcudart.so",
+
+	// Mutex gate (decision: vendors are mutually exclusive per container).
+	// Even with --vendor=both we refuse to inject when one container
+	// declares BOTH env vars; the upper scheduler must keep one Pod to
+	// one heterogeneous resource.
+	if nvRequested && musaRequested {
+		log.Warnf("%s: refusing injection — container declares both NVIDIA_VISIBLE_DEVICES and MUSA_VISIBLE_DEVICES; vendors must be mutually exclusive per container",
+			containerName(pod, ctr))
+		return nil
 	}
+
+	var plans []vendorPlan
+	if nvRequested {
+		plans = append(plans, vendorPlan{
+			libsToReplace: nvidiaLibraryFiles,
+			sourceLib:     "libfakegpu.so",
+			configEnv:     "FAKE_GPU_CONFIG",
+			configFile:    "fake-gpu.yaml",
+		})
+		if verbose {
+			log.Infof("%s: injecting NVIDIA GPU...", containerName(pod, ctr))
+		}
+	}
+	if musaRequested {
+		plans = append(plans, vendorPlan{
+			libsToReplace: musaLibraryFiles,
+			sourceLib:     "libfakegpu.so", // 同一个 SO；bind-mount 成多个目的名
+			configEnv:     "FAKE_MUSA_CONFIG",
+			configFile:    "fake-musa.yaml",
+		})
+		if verbose {
+			log.Infof("%s: injecting MUSA GPU...", containerName(pod, ctr))
+		}
+	}
+
+	if len(plans) == 0 {
+		log.Debugf("%s: no vendor matched", containerName(pod, ctr))
+		return nil
+	}
+
 	librarySearchPaths := []string{
 		"/lib",
 		"/usr/lib64",
@@ -118,28 +179,40 @@ func injectMounts(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjus
 		"/lib/x86_64-linux-gnu",
 		"/lib/aarch64-linux-gnu",
 	}
-	if injectGPU != injectGPUTypeNone {
-		for _, filename := range filenames {
-			for _, path := range librarySearchPaths {
+
+	for _, p := range plans {
+		for _, fn := range p.libsToReplace {
+			for _, lp := range librarySearchPaths {
 				mounts = append(mounts, mount{
-					Source:      fmt.Sprintf("%s/libfakegpu.so", sourceHostPath),
-					Destination: fmt.Sprintf("%s/%s", path, filename),
+					Source:      fmt.Sprintf("%s/%s", sourceHostPath, p.sourceLib),
+					Destination: fmt.Sprintf("%s/%s", lp, fn),
 					Type:        "bind",
 					Options:     mountOption,
 				})
 			}
 		}
-		for _, command := range overrideCommand {
-			mounts = append(mounts, mount{
-				Source:      fmt.Sprintf("%s/nvidia-smi", sourceHostPath),
-				Destination: "/usr/bin/" + command,
-				Type:        "bind",
-				Options:     mountOption,
-			})
+		mounts = append(mounts, mount{
+			Source:      fmt.Sprintf("%s/%s", sourceHostPath, p.configFile),
+			Destination: fmt.Sprintf("/usr/local/fake-gpu/%s", p.configFile),
+			Type:        "bind",
+			Options:     mountOption,
+		})
+	}
+
+	// CLI shims — one host binary may back several command names.
+	overrideSourceMap := map[string]string{
+		"nvidia-smi": "nvidia-smi",
+		"vectorAdd":  "nvidia-smi", // existing pre-image behaviour
+		"mt-smi":     "mt-smi",
+	}
+	for _, command := range overrideCommand {
+		src, ok := overrideSourceMap[command]
+		if !ok {
+			src = command
 		}
 		mounts = append(mounts, mount{
-			Source:      fmt.Sprintf("%s/fake-gpu.yaml", sourceHostPath),
-			Destination: "/usr/local/fake-gpu/fake-gpu.yaml",
+			Source:      fmt.Sprintf("%s/%s", sourceHostPath, src),
+			Destination: "/usr/bin/" + command,
 			Type:        "bind",
 			Options:     mountOption,
 		})
@@ -162,16 +235,19 @@ func injectMounts(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjus
 		}
 	}
 
-	a.AddEnv("FAKE_GPU_CONFIG", "/usr/local/fake-gpu/fake-gpu.yaml")
+	for _, p := range plans {
+		dest := fmt.Sprintf("/usr/local/fake-gpu/%s", p.configFile)
+		a.AddEnv(p.configEnv, dest)
+		if !verbose {
+			log.Infof("%s: injected env %q -> %q...", containerName(pod, ctr),
+				p.configEnv, dest)
+		}
+	}
 	if len(gpusuffix) > 0 {
 		a.AddEnv("FAKE_GPU_SUFFIX", gpusuffix)
-	}
-	if !verbose {
-		log.Infof("%s: injected env %q -> %q...", containerName(pod, ctr),
-			"FAKE_GPU_CONFIG", "/usr/local/fake-gpu/fake-gpu.yaml")
-		if visibleAllDevice {
-			log.Infof("%s: injected env %q -> %q...", containerName(pod, ctr),
-				"FAKE_GPU_SUFFIX", gpusuffix)
+		a.AddEnv("FAKE_MUSA_SUFFIX", gpusuffix)
+		if !verbose && visibleAllDevice {
+			log.Infof("%s: injected suffix %q", containerName(pod, ctr), gpusuffix)
 		}
 	}
 	return nil
@@ -250,7 +326,8 @@ func main() {
 	flag.StringVar(&sourceHostPath, "source-path", "/usr/local/fake-gpu", "source host path for mounts")
 	flag.StringVar(&gpusuffix, "gpu-uuid-suffix", "", "gpu uuid suffix for fake gpu")
 	flag.StringVar(&confPath, "conf", "", "fake gpu config file path")
-	flag.StringVar(&commands, "override-commands", "nvidia-smi,vectorAdd", "Override commands in the container")
+	flag.StringVar(&commands, "override-commands", "nvidia-smi,vectorAdd,mt-smi", "Override commands in the container")
+	flag.StringVar(&vendor, "vendor", "nvidia", "GPU vendor to fake: nvidia | musa | both")
 	flag.Parse()
 	overrideCommand = strings.Split(commands, ",")
 	if pluginName != "" {
