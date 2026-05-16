@@ -61,8 +61,7 @@ void load_config_locked() {
 }
 
 // Encode a device handle as (intptr_t)index + 1 so 0 is never valid.
-// Subsequent tasks (6, 7) decode the same way for indexing into g_gpus.
-[[maybe_unused]] const MtGPU *device_to_gpu(const MtmlDevice *d) {
+const MtGPU *device_to_gpu(const MtmlDevice *d) {
     intptr_t idx = reinterpret_cast<intptr_t>(d) - 1;
     if (idx < 0 || idx >= static_cast<intptr_t>(g_gpus.size())) return nullptr;
     return &g_gpus[idx];
@@ -196,5 +195,117 @@ HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlSystemGetDriverVersion(const MtmlSyst
                                           : g_gpus.front().driver_version;
     std::strncpy(version, v.c_str(), length);
     version[length - 1] = '\0';
+    return MTML_SUCCESS;
+}
+
+// ---- device queries --------------------------------------------------------
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetIndex(const MtmlDevice *dev, unsigned int *index) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetIndex");
+    if (!dev || !index) return MTML_ERROR_INVALID_ARGUMENT;
+    intptr_t idx = reinterpret_cast<intptr_t>(dev) - 1;
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (idx < 0 || idx >= static_cast<intptr_t>(g_gpus.size())) return MTML_ERROR_INVALID_ARGUMENT;
+    *index = static_cast<unsigned int>(idx);
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetUUID(const MtmlDevice *dev, char *uuid, unsigned int length) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetUUID");
+    if (!dev || !uuid || length == 0) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = device_to_gpu(dev);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    std::strncpy(uuid, g->uuid.c_str(), length);
+    uuid[length - 1] = '\0';
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetBrand(const MtmlDevice *dev, MtmlBrandType *type) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetBrand");
+    if (!dev || !type) return MTML_ERROR_INVALID_ARGUMENT;
+    *type = MTML_BRAND_MTT;
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetName(const MtmlDevice *dev, char *name, unsigned int length) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetName");
+    if (!dev || !name || length == 0) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = device_to_gpu(dev);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    std::strncpy(name, g->name.c_str(), length);
+    name[length - 1] = '\0';
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetPciInfo(const MtmlDevice *dev, MtmlPciInfo *pci) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetPciInfo");
+    if (!dev || !pci) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = device_to_gpu(dev);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    std::memset(pci, 0, sizeof(*pci));
+    std::strncpy(pci->sbdf, g->pci.bus_id.c_str(), MTML_DEVICE_PCI_SBDF_BUFFER_SIZE - 1);
+    pci->segment        = static_cast<unsigned int>(g->pci.domain_id);
+    pci->bus            = static_cast<unsigned int>(g->pci.bus);
+    pci->device         = static_cast<unsigned int>(g->pci.device_id);
+    pci->pciDeviceId    = 0;
+    pci->pciSubsystemId = static_cast<unsigned int>(g->pci.sub_system_id);
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetPowerUsage(const MtmlDevice *dev, unsigned int *power) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetPowerUsage");
+    if (!dev || !power) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = device_to_gpu(dev);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    *power = static_cast<unsigned int>(g->power.usage);
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetGpuPath(const MtmlDevice *dev, char *path, unsigned int length) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetGpuPath");
+    if (!dev || !path || length == 0) return MTML_ERROR_INVALID_ARGUMENT;
+    intptr_t idx = reinterpret_cast<intptr_t>(dev) - 1;
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (idx < 0 || idx >= static_cast<intptr_t>(g_gpus.size())) return MTML_ERROR_INVALID_ARGUMENT;
+    std::string p = "/dev/mtgpu" + std::to_string(idx);
+    std::strncpy(path, p.c_str(), length);
+    path[length - 1] = '\0';
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetVbiosVersion(const MtmlDevice *dev, char *version, unsigned int length) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetVbiosVersion");
+    if (!dev || !version || length == 0) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = device_to_gpu(dev);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    std::strncpy(version, g->vbios_version.c_str(), length);
+    version[length - 1] = '\0';
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetMtBiosVersion(const MtmlDevice *dev, char *version, unsigned int length) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetMtBiosVersion");
+    if (!dev || !version || length == 0) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = device_to_gpu(dev);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    std::strncpy(version, g->mtbios_version.c_str(), length);
+    version[length - 1] = '\0';
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetSerialNumber(const MtmlDevice *device, unsigned int length, char *serialNumber) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetSerialNumber");
+    if (!device || !serialNumber || length == 0) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = device_to_gpu(device);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    std::strncpy(serialNumber, g->serial.c_str(), length);
+    serialNumber[length - 1] = '\0';
     return MTML_SUCCESS;
 }
