@@ -35,6 +35,27 @@ typedef MtmlReturn (*sys_drv_fn)(const MtmlSystem*, char*, unsigned int);
 typedef MtmlReturn (*lib_init_sys_fn)(const MtmlLibrary*, MtmlSystem**);
 typedef MtmlReturn (*lib_free_sys_fn)(MtmlSystem*);
 
+// MtmlPciInfo layout mirrors src/common/mtml_2.2.0.h. We only consume sbdf,
+// but the vendor's getter writes the whole struct, so we must match its
+// size to avoid clobbering the stack.
+typedef struct {
+    char sbdf[32];
+    unsigned int segment;
+    unsigned int bus;
+    unsigned int device;
+    unsigned int pciDeviceId;
+    unsigned int pciSubsystemId;
+    unsigned int busWidth;
+    float pciMaxSpeed;
+    float pciCurSpeed;
+    unsigned int pciMaxWidth;
+    unsigned int pciCurWidth;
+    unsigned int pciMaxGen;
+    unsigned int pciCurGen;
+    int rsvd[6];
+} MtmlPciInfo;
+typedef MtmlReturn (*dev_pci_fn)(const MtmlDevice*, MtmlPciInfo*);
+
 static void *h = NULL;
 
 static lib_init_fn      mtmlLibraryInit_fn;
@@ -56,6 +77,7 @@ static gpu_temp_fn      mtmlGpuGetTemperature_fn;
 static sys_drv_fn       mtmlSystemGetDriverVersion_fn;
 static lib_init_sys_fn  mtmlLibraryInitSystem_fn;
 static lib_free_sys_fn  mtmlLibraryFreeSystem_fn;
+static dev_pci_fn       mtmlDeviceGetPciInfo_fn;
 
 #define LOAD(sym, type) sym##_fn = (type)dlsym(h, #sym)
 
@@ -81,6 +103,7 @@ static int load_lib(const char *path) {
     LOAD(mtmlSystemGetDriverVersion,     sys_drv_fn);
     LOAD(mtmlLibraryInitSystem,          lib_init_sys_fn);
     LOAD(mtmlLibraryFreeSystem,          lib_free_sys_fn);
+    LOAD(mtmlDeviceGetPciInfo,           dev_pci_fn);
     return 0;
 }
 
@@ -104,6 +127,7 @@ static MtmlReturn gpu_temp(const MtmlGpu *g, int *v)                            
 static MtmlReturn sys_drv(const MtmlSystem *s, char *b, unsigned int n)           { return mtmlSystemGetDriverVersion_fn(s, b, n); }
 static MtmlReturn lib_init_sys(const MtmlLibrary *l, MtmlSystem **s)              { return mtmlLibraryInitSystem_fn(l, s); }
 static MtmlReturn lib_free_sys(MtmlSystem *s)                                     { return mtmlLibraryFreeSystem_fn(s); }
+static MtmlReturn dev_pci(const MtmlDevice *d, MtmlPciInfo *p)                    { return mtmlDeviceGetPciInfo_fn(d, p); }
 */
 import "C"
 
@@ -208,6 +232,15 @@ func (d *Device) UUID() (string, error) {
 		return "", fmt.Errorf("mtmlDeviceGetUUID: %d", int(r))
 	}
 	return C.GoString((*C.char)(unsafe.Pointer(&buf[0]))), nil
+}
+
+// BusID returns the PCI SBDF string (e.g. "0000:00:1F.0").
+func (d *Device) BusID() (string, error) {
+	var pci C.MtmlPciInfo
+	if r := C.dev_pci((*C.MtmlDevice)(d.ptr), &pci); r != SUCCESS {
+		return "", fmt.Errorf("mtmlDeviceGetPciInfo: %d", int(r))
+	}
+	return C.GoString((*C.char)(unsafe.Pointer(&pci.sbdf[0]))), nil
 }
 
 // PowerUsage returns the current power draw in milliwatts.

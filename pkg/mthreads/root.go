@@ -2,15 +2,25 @@ package mthreads
 
 import (
 	"fmt"
+	"io"
 	"os"
-	"strconv"
+	"strings"
 	"time"
 
-	"github.com/jedib0t/go-pretty/v6/table"
 	"github.com/spf13/cobra"
 
 	"github.com/chaunceyjiang/fake-gpu/pkg/mthreads/common"
 	"github.com/chaunceyjiang/fake-gpu/pkg/mthreads/mtml"
+)
+
+// Fake display constants. Real mthreads-gmi sources these from kernel/PCI
+// state we don't model; pin reasonable defaults so the table looks right.
+const (
+	gmiVersion    = "1.14.0"
+	deviceType    = "Physical"
+	pcieLaneWidth = "16x(16x)"
+	mpcCapable    = "NO" // docs/musa.md §"What this deliberately does NOT do"
+	eccMode       = "N/A"
 )
 
 var libPath string
@@ -65,6 +75,7 @@ func run() error {
 		}
 		name, _ := d.Name()
 		uuid, _ := d.UUID()
+		busID, _ := d.BusID()
 		total, used, _ := d.Memory()
 		util, tempC, _ := d.GPUStats()
 		pwr, _ := d.PowerUsage()
@@ -72,6 +83,7 @@ func run() error {
 			Idx:      i,
 			Name:     name,
 			UUID:     uuid,
+			BusID:    busID,
 			TotalMem: total,
 			UsedMem:  used,
 			Util:     util,
@@ -81,22 +93,55 @@ func run() error {
 		_ = d.Free()
 	}
 
-	fmt.Println(time.Now().Format(time.ANSIC))
-	t := table.NewWriter()
-	t.SetOutputMirror(os.Stdout)
-	t.SetTitle(fmt.Sprintf("MTHREADS-GMI (fake)    Driver Version: %s", driver))
-	t.AppendHeader(table.Row{"GPU", "Name", "UUID", "Temp", "Pwr", "Memory-Usage", "GPU-Util"})
-	for _, g := range gpus {
-		t.AppendRow(table.Row{
-			strconv.Itoa(int(g.Idx)),
-			g.Name,
-			g.UUID,
-			fmt.Sprintf("%dC", g.TempC),
-			fmt.Sprintf("%dW", g.PowerMW/1000),
-			fmt.Sprintf("%d MiB / %d MiB", g.UsedMem/1024/1024, g.TotalMem/1024/1024),
-			fmt.Sprintf("%d%%", g.Util),
-		})
-	}
-	t.Render()
+	render(os.Stdout, driver, gpus)
 	return nil
+}
+
+// Layout copies the visible structure of the real mthreads-gmi output:
+// 3 row groups per GPU, two vertical pipes splitting (id+name) | (pcie) |
+// (gpu/mem stats). Widths are sized so total rule == 63 chars.
+const (
+	colID   = 5  // "0    "
+	colName = 15 // "MTT S4000      "
+	colPCI  = 20 // "00000000:12:00.0    "
+	colGPU  = 6  // "100%  "
+)
+
+func render(w io.Writer, driver string, gpus []common.GPU) {
+	rule := strings.Repeat("-", 63)
+	plus := "+" + strings.Repeat("-", 61) + "+"
+
+	fmt.Fprintln(w, time.Now().Format(time.ANSIC))
+	fmt.Fprintln(w, rule)
+	fmt.Fprintf(w, "    mthreads-gmi:%s          Driver Version:%s\n", gmiVersion, driver)
+	fmt.Fprintln(w, rule)
+	fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%s\n",
+		colID, "ID", colName, "Name", colPCI, "PCIe", colGPU, "%GPU", "Mem")
+	fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%s\n",
+		colID, "", colName, "Device Type", colPCI, "Pcie Lane Width", colGPU, "Temp", "MPC Capable")
+	// Third row drops the first pipe so the PCIe column reads as one
+	// continuous blank — matches real mthreads-gmi output.
+	fmt.Fprintf(w, "%-*s%-*s %-*s|%-*s%s\n",
+		colID, "", colName, "", colPCI, "", colGPU, "", "ECC Mode")
+	fmt.Fprintln(w, plus)
+	for _, g := range gpus {
+		mem := fmt.Sprintf("%dMiB(%dMiB)", g.UsedMem/1024/1024, g.TotalMem/1024/1024)
+		fmt.Fprintf(w, "%-*d%-*s|%-*s|%-*s%s\n",
+			colID, g.Idx, colName, g.Name, colPCI, g.BusID,
+			colGPU, fmt.Sprintf("%d%%", g.Util), mem)
+		fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%s\n",
+			colID, "", colName, deviceType, colPCI, pcieLaneWidth,
+			colGPU, fmt.Sprintf("%dC", g.TempC), mpcCapable)
+		fmt.Fprintf(w, "%-*s%-*s %-*s|%-*s%s\n",
+			colID, "", colName, "", colPCI, "", colGPU, "", eccMode)
+	}
+	fmt.Fprintln(w, rule)
+	fmt.Fprintln(w)
+	fmt.Fprintln(w, rule)
+	fmt.Fprintln(w, "Processes:")
+	fmt.Fprintf(w, "%-*s%-*s%-*s%s\n", colID, "ID", 10, "PID", 37, "Process name", "GPU Memory")
+	fmt.Fprintf(w, "%-*s%-*s%-*s%s\n", colID, "", 10, "", 37, "", "     Usage")
+	fmt.Fprintln(w, plus)
+	fmt.Fprintln(w, "   No running processes found")
+	fmt.Fprintln(w, rule)
 }

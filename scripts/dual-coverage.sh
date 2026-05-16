@@ -3,11 +3,11 @@
 # Aligned with docs/superpowers/plans/2026-05-04-add-musa-support.md §14
 # and docs/mthreads-support-design.md §7.0.
 #
-# T1  NVIDIA   nvidia-smi -L                                  >= 1 row
+# T1  NVIDIA   nvidia-smi                                     >= 1 GPU row
 # T2  NVIDIA   CUDA Driver smoke (cuInit + cuDeviceGetCount)  count == yaml
 # T3  NVIDIA   CUDA Runtime smoke (vectorAdd)                 exits 0
-# T4  MTHREADS mthreads-gmi -L                                      >= 1 row
-# T5  MTHREADS mthreads-gmi -L count matches conf/fake-musa.yaml    count == yaml
+# T4  MTHREADS mthreads-gmi                                   >= 1 GPU row
+# T5  MTHREADS mthreads-gmi row count matches fake-musa.yaml  count == yaml
 # T6  MTHREADS muInit + muDeviceGetCount + muMemGetInfo_v2    stub errors
 # T7  MTHREADS musaSetDevice + musaMemGetInfo                 musaErrorNoDevice
 # T8  INJECTOR mutex refusal (NV + MUSA env)                  0 mounts
@@ -42,9 +42,10 @@ skip()  { printf '  \033[33mSKIP\033[0m %s (%s)\n' "$1" "$2"; }
 if [ "$HAVE_NATIVE" = 1 ]; then
   echo "== Native libfakegpu.so detected, running T1-T7 =="
 
-  # T1
-  printf 'T1: nvidia-smi -L ... '
-  if LD_PRELOAD="$LIB" "$BIN/nvidia-smi" -L | grep -qE '^GPU [0-9]+:'; then
+  # T1: nvidia-smi prints each fake GPU as a row starting with the device
+  # index followed by the vendor brand string.
+  printf 'T1: nvidia-smi lists fake GPUs ... '
+  if LD_PRELOAD="$LIB" "$BIN/nvidia-smi" | grep -qE '^[[:space:]]*\|[[:space:]]+[0-9]+[[:space:]]+NVIDIA'; then
     pass T1
   else
     fail T1
@@ -58,9 +59,11 @@ if [ "$HAVE_NATIVE" = 1 ]; then
     fail T2/T3
   fi
 
-  # T4
-  printf 'T4: mthreads-gmi -L ... '
-  if LD_PRELOAD="$LIB" "$BIN/mthreads-gmi" -L | grep -qE '^GPU [0-9]+:'; then
+  # T4: mthreads-gmi prints each fake MTT GPU as a row whose first column
+  # is the device index. The row regex matches the first line of each
+  # 3-line GPU group.
+  printf 'T4: mthreads-gmi lists fake MTT GPUs ... '
+  if LD_PRELOAD="$LIB" "$BIN/mthreads-gmi" | grep -qE '^[0-9]+[[:space:]]+MTT'; then
     pass T4
   else
     fail T4
@@ -68,7 +71,7 @@ if [ "$HAVE_NATIVE" = 1 ]; then
 
   # T5: count rows in fake-musa.yaml and compare against mthreads-gmi output.
   expected=$(count_yaml_rows conf/fake-musa.yaml)
-  got=$(LD_PRELOAD="$LIB" "$BIN/mthreads-gmi" -L | grep -cE '^GPU [0-9]+:' || true)
+  got=$(LD_PRELOAD="$LIB" "$BIN/mthreads-gmi" | grep -cE '^[0-9]+[[:space:]]+MTT' || true)
   printf 'T5: mtml count = yaml count (%s == %s) ... ' "$got" "$expected"
   if [ "$got" = "$expected" ] && [ "$expected" != "0" ]; then
     pass T5
