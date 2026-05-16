@@ -85,6 +85,11 @@ initContainerImage:
   tag: v0.8.0
   pullPolicy: IfNotPresent
 
+# GPU vendor to simulate. One of: nvidia, musa, both.
+# `both` still enforces per-container mutual exclusion between
+# NVIDIA_VISIBLE_DEVICES and MUSA_VISIBLE_DEVICES.
+vendor: nvidia
+
 # This is for setting the nri plugin configuration.
 nri:
   plugin:

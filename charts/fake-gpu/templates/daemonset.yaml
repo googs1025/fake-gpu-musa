@@ -69,6 +69,8 @@ spec:
             - {{ .Values.nri.plugin.name }}
             - -source-path
             - /usr/local/fake-gpu
+            - -vendor
+            - {{ .Values.vendor | quote }}
           securityContext:
             privileged: true
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
@@ -88,6 +90,9 @@ spec:
           - name: config-file
             mountPath: /fake-gpu/fake-gpu.yaml
             subPath: fake-gpu.yaml
+          - name: musa-config-file
+            mountPath: /fake-gpu/fake-musa.yaml
+            subPath: fake-musa.yaml
           {{- with .Values.volumeMounts }}
             {{- toYaml . | nindent 12 }}
           {{- end }}
@@ -114,6 +119,9 @@ spec:
       - name: config-file
         configMap:
           name: {{ .Release.Name }}-configmap
+      - name: musa-config-file
+        configMap:
+          name: {{ .Release.Name }}-musa-configmap
       {{- if .Values.nri.runtime.patchConfig }}
       - name: containerd-config
         hostPath:

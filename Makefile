@@ -57,13 +57,16 @@ default: all version
 .PHONY: docker-build
 docker-build:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) -t $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(IMAGE_VERSION) -f Dockerfile .
-build-cmd: device-injector nvidia-smi
+build-cmd: device-injector nvidia-smi mt-smi
 
 device-injector:
 	$(GO) build -o ${OUTPUT_DIR}/bin/device-injector ./cmd/device-injector/main.go
 
 nvidia-smi:
 	$(GO) build -o ${OUTPUT_DIR}/bin/nvidia-smi ./cmd/nvidia-smi/main.go
+
+mt-smi:
+	$(GO) build -o ${OUTPUT_DIR}/bin/mt-smi ./cmd/mt-smi/main.go
 
 images: docker-build
 	@echo "========== save images =========="

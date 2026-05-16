@@ -5,3 +5,11 @@ metadata:
 data:
   fake-gpu.yaml: |-
   {{ .Files.Get "files/fake-gpu.yaml" | indent 4 }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-musa-configmap
+data:
+  fake-musa.yaml: |-
+  {{ .Files.Get "files/fake-musa.yaml" | indent 4 }}

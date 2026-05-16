@@ -1,7 +1,10 @@
 #!/bin/sh
 echo "create fake gpu device"
-# count the number of gpu
-gpu_num=`cat /fake-gpu/fake-gpu.yaml |grep cuda_version | wc -l`
+# count the number of gpu — sum NVIDIA + MUSA entries so the combined
+# device node range covers both fake vendors.
+nv_gpu_num=$(grep -c cuda_version /fake-gpu/fake-gpu.yaml 2>/dev/null || echo 0)
+musa_gpu_num=$(grep -c '^  - name:' /fake-gpu/fake-musa.yaml 2>/dev/null || echo 0)
+gpu_num=$((nv_gpu_num + musa_gpu_num))
 for i in `seq 0 $gpu_num`
 do
   mknod /host-dev/nvidia$i c 195 $i
