@@ -68,6 +68,18 @@ nvidia-smi:
 mt-smi:
 	$(GO) build -o ${OUTPUT_DIR}/bin/mt-smi ./cmd/mt-smi/main.go
 
+# T6/T7 smoke binary: dlopen libfakegpu.so and assert MUSA stubs return error codes.
+musa-smoke:
+	@mkdir -p ${OUTPUT_DIR}/bin
+	$(CC) -o ${OUTPUT_DIR}/bin/musa-smoke scripts/musa-smoke.c -ldl
+
+# T1-T9 dual-coverage matrix (NVIDIA + MTHREADS paths). T1-T7 auto-skip when
+# the native libfakegpu.so isn't built (e.g. on macOS dev hosts); T8/T9 always
+# run as Go unit tests.
+.PHONY: test-dual
+test-dual:
+	bash scripts/dual-coverage.sh
+
 images: docker-build
 	@echo "========== save images =========="
 	@mkdir -p $(OUTPUT_DIR)
