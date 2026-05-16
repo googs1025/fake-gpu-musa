@@ -255,6 +255,23 @@ HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetPciInfo(const MtmlDevice *de
     return MTML_SUCCESS;
 }
 
+// mtmlDeviceGetMpcMode reports whether MPC (Multi Primary Core) is enabled.
+// fake-gpu doesn't model the per-instance virtualization that real MPC
+// implies; we just signal "supported but disabled" when mpc_count > 0 so
+// callers like mthreads-gmi can render MPC Capable=YES. Devices with
+// mpc_count == 0 return MTML_ERROR_NOT_SUPPORTED — same shape as real
+// non-MPC silicon.
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetMpcMode(const MtmlDevice *dev, MtmlMpcMode *mode) {
+    HOOK_TRACE_PROFILE("mtmlDeviceGetMpcMode");
+    if (!dev || !mode) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = device_to_gpu(dev);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    if (g->mpc_count <= 0) return MTML_ERROR_NOT_SUPPORTED;
+    *mode = MTML_DEVICE_MPC_DISABLE;
+    return MTML_SUCCESS;
+}
+
 HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetPowerUsage(const MtmlDevice *dev, unsigned int *power) {
     HOOK_TRACE_PROFILE("mtmlDeviceGetPowerUsage");
     if (!dev || !power) return MTML_ERROR_INVALID_ARGUMENT;

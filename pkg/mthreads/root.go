@@ -19,7 +19,6 @@ const (
 	gmiVersion    = "1.14.0"
 	deviceType    = "Physical"
 	pcieLaneWidth = "16x(16x)"
-	mpcCapable    = "NO" // docs/musa.md §"What this deliberately does NOT do"
 	eccMode       = "N/A"
 )
 
@@ -80,15 +79,16 @@ func run() error {
 		util, tempC, _ := d.GPUStats()
 		pwr, _ := d.PowerUsage()
 		gpus = append(gpus, common.GPU{
-			Idx:      i,
-			Name:     name,
-			UUID:     uuid,
-			BusID:    busID,
-			TotalMem: total,
-			UsedMem:  used,
-			Util:     util,
-			TempC:    tempC,
-			PowerMW:  pwr,
+			Idx:        i,
+			Name:       name,
+			UUID:       uuid,
+			BusID:      busID,
+			TotalMem:   total,
+			UsedMem:    used,
+			Util:       util,
+			TempC:      tempC,
+			PowerMW:    pwr,
+			MpcCapable: d.MpcCapable(),
 		})
 		_ = d.Free()
 	}
@@ -126,12 +126,16 @@ func render(w io.Writer, driver string, gpus []common.GPU) {
 	fmt.Fprintln(w, plus)
 	for _, g := range gpus {
 		mem := fmt.Sprintf("%dMiB(%dMiB)", g.UsedMem/1024/1024, g.TotalMem/1024/1024)
+		mpc := "NO"
+		if g.MpcCapable {
+			mpc = "YES"
+		}
 		fmt.Fprintf(w, "%-*d%-*s|%-*s|%-*s%s\n",
 			colID, g.Idx, colName, g.Name, colPCI, g.BusID,
 			colGPU, fmt.Sprintf("%d%%", g.Util), mem)
 		fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%s\n",
 			colID, "", colName, deviceType, colPCI, pcieLaneWidth,
-			colGPU, fmt.Sprintf("%dC", g.TempC), mpcCapable)
+			colGPU, fmt.Sprintf("%dC", g.TempC), mpc)
 		fmt.Fprintf(w, "%-*s%-*s %-*s|%-*s%s\n",
 			colID, "", colName, "", colPCI, "", colGPU, "", eccMode)
 	}

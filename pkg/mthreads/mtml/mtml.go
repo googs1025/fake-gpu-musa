@@ -55,6 +55,7 @@ typedef struct {
     int rsvd[6];
 } MtmlPciInfo;
 typedef MtmlReturn (*dev_pci_fn)(const MtmlDevice*, MtmlPciInfo*);
+typedef MtmlReturn (*dev_mpc_mode_fn)(const MtmlDevice*, int*);
 
 static void *h = NULL;
 
@@ -78,6 +79,7 @@ static sys_drv_fn       mtmlSystemGetDriverVersion_fn;
 static lib_init_sys_fn  mtmlLibraryInitSystem_fn;
 static lib_free_sys_fn  mtmlLibraryFreeSystem_fn;
 static dev_pci_fn       mtmlDeviceGetPciInfo_fn;
+static dev_mpc_mode_fn  mtmlDeviceGetMpcMode_fn;
 
 #define LOAD(sym, type) sym##_fn = (type)dlsym(h, #sym)
 
@@ -104,6 +106,9 @@ static int load_lib(const char *path) {
     LOAD(mtmlLibraryInitSystem,          lib_init_sys_fn);
     LOAD(mtmlLibraryFreeSystem,          lib_free_sys_fn);
     LOAD(mtmlDeviceGetPciInfo,           dev_pci_fn);
+    // Optional — present on real MTML 2.2+; missing on older libs. dev_mpc
+    // tolerates a NULL pointer and reports "not capable".
+    mtmlDeviceGetMpcMode_fn = (dev_mpc_mode_fn)dlsym(h, "mtmlDeviceGetMpcMode");
     return 0;
 }
 
@@ -127,7 +132,29 @@ static MtmlReturn gpu_temp(const MtmlGpu *g, int *v)                            
 static MtmlReturn sys_drv(const MtmlSystem *s, char *b, unsigned int n)           { return mtmlSystemGetDriverVersion_fn(s, b, n); }
 static MtmlReturn lib_init_sys(const MtmlLibrary *l, MtmlSystem **s)              { return mtmlLibraryInitSystem_fn(l, s); }
 static MtmlReturn lib_free_sys(MtmlSystem *s)                                     { return mtmlLibraryFreeSystem_fn(s); }
-static MtmlReturn dev_pci(const MtmlDevice *d, MtmlPciInfo *p)                    { return mtmlDeviceGetPciInfo_fn(d, p); }
+
+// dev_busid hides MtmlPciInfo from the Go side. gopls struggles to type-check
+// inline cgo structs, and we only need sbdf anyway — copy it into the caller's
+// buffer and discard the rest.
+static MtmlReturn dev_busid(const MtmlDevice *d, char *out, unsigned int len) {
+    MtmlPciInfo pci;
+    MtmlReturn r = mtmlDeviceGetPciInfo_fn(d, &pci);
+    if (r != 0) return r;
+    if (len == 0) return r;
+    strncpy(out, pci.sbdf, len);
+    out[len - 1] = '\0';
+    return r;
+}
+
+// dev_mpc returns 1 if the device's MPC mode is queryable (i.e. hardware is
+// MPC-capable), 0 if mtmlDeviceGetMpcMode is absent or returns an error
+// (which a real device reports as MTML_ERROR_NOT_SUPPORTED).
+static int dev_mpc(const MtmlDevice *d) {
+    int mode = 0;
+    if (mtmlDeviceGetMpcMode_fn == NULL) return 0;
+    if (mtmlDeviceGetMpcMode_fn(d, &mode) != 0) return 0;
+    return 1;
+}
 */
 import "C"
 
@@ -234,13 +261,23 @@ func (d *Device) UUID() (string, error) {
 	return C.GoString((*C.char)(unsafe.Pointer(&buf[0]))), nil
 }
 
-// BusID returns the PCI SBDF string (e.g. "0000:00:1F.0").
+// BusID returns the PCI SBDF string (e.g. "0000:00:1F.0"). The MtmlPciInfo
+// struct stays inside the cgo C block — dev_busid copies sbdf into a Go
+// buffer so this side never references the struct type.
 func (d *Device) BusID() (string, error) {
-	var pci C.MtmlPciInfo
-	if r := C.dev_pci((*C.MtmlDevice)(d.ptr), &pci); r != SUCCESS {
+	buf := make([]byte, 32)
+	if r := C.dev_busid((*C.MtmlDevice)(d.ptr), (*C.char)(unsafe.Pointer(&buf[0])), 32); r != SUCCESS {
 		return "", fmt.Errorf("mtmlDeviceGetPciInfo: %d", int(r))
 	}
-	return C.GoString((*C.char)(unsafe.Pointer(&pci.sbdf[0]))), nil
+	return C.GoString((*C.char)(unsafe.Pointer(&buf[0]))), nil
+}
+
+// MpcCapable reports whether the device's hardware supports MPC (Multi
+// Primary Core) virtualization. We surface this as a YES/NO field — fake-gpu
+// doesn't *implement* MPC, but a real S4000-class card is MPC-capable, so
+// the answer is data-driven via mtmlDeviceGetMpcMode.
+func (d *Device) MpcCapable() bool {
+	return C.dev_mpc((*C.MtmlDevice)(d.ptr)) != 0
 }
 
 // PowerUsage returns the current power draw in milliwatts.

@@ -1,13 +1,14 @@
 package common
 
 type GPU struct {
-	Idx      uint
-	Name     string
-	UUID     string
-	BusID    string
-	TotalMem uint64
-	UsedMem  uint64
-	Util     uint
-	TempC    int
-	PowerMW  uint
+	Idx        uint
+	Name       string
+	UUID       string
+	BusID      string
+	TotalMem   uint64
+	UsedMem    uint64
+	Util       uint
+	TempC      int
+	PowerMW    uint
+	MpcCapable bool
 }

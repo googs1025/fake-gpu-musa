@@ -6,7 +6,7 @@ moorethreads:
     vbios_version: 1.0.0.0
     mtbios_version: 0.4.0.4
     serial: MTT12345678
-    mpc_count: 0
+    mpc_count: 1
     power:
       minLimit: 50000
       maxLimit: 250000
