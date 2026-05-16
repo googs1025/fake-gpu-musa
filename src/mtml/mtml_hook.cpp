@@ -309,3 +309,123 @@ HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceGetSerialNumber(const MtmlDevic
     serialNumber[length - 1] = '\0';
     return MTML_SUCCESS;
 }
+
+// ---- sub-objects: Memory / GPU / VPU ---------------------------------------
+// Sub-object handles encode the original device index in the low 32 bits and a
+// type tag in the high bits, so a single dispatch helper can route any of them
+// back to g_gpus without per-object bookkeeping.
+
+namespace {
+
+constexpr intptr_t kMemoryTag = 1LL << 32;
+constexpr intptr_t kGpuTag    = 2LL << 32;
+constexpr intptr_t kVpuTag    = 3LL << 32;
+
+const MtGPU *handle_to_gpu(const void *h, intptr_t tag) {
+    intptr_t v = reinterpret_cast<intptr_t>(h);
+    if ((v & ~0xFFFFFFFFLL) != tag) return nullptr;
+    intptr_t idx = (v & 0xFFFFFFFFLL) - 1;
+    if (idx < 0 || idx >= static_cast<intptr_t>(g_gpus.size())) return nullptr;
+    return &g_gpus[idx];
+}
+
+void *make_handle(const MtmlDevice *d, intptr_t tag) {
+    intptr_t idx = reinterpret_cast<intptr_t>(d);
+    return reinterpret_cast<void *>(tag | (idx & 0xFFFFFFFFLL));
+}
+
+}  // namespace
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceInitMemory(const MtmlDevice *dev, MtmlMemory **mem) {
+    HOOK_TRACE_PROFILE("mtmlDeviceInitMemory");
+    if (!mem) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!device_to_gpu(dev)) return MTML_ERROR_INVALID_ARGUMENT;
+    *mem = static_cast<MtmlMemory *>(make_handle(dev, kMemoryTag));
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceFreeMemory(MtmlMemory *mem) {
+    HOOK_TRACE_PROFILE("mtmlDeviceFreeMemory");
+    if (!mem) return MTML_ERROR_INVALID_ARGUMENT;
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceInitGpu(const MtmlDevice *dev, MtmlGpu **gpu) {
+    HOOK_TRACE_PROFILE("mtmlDeviceInitGpu");
+    if (!gpu) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!device_to_gpu(dev)) return MTML_ERROR_INVALID_ARGUMENT;
+    *gpu = static_cast<MtmlGpu *>(make_handle(dev, kGpuTag));
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceFreeGpu(MtmlGpu *gpu) {
+    HOOK_TRACE_PROFILE("mtmlDeviceFreeGpu");
+    if (!gpu) return MTML_ERROR_INVALID_ARGUMENT;
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceInitVpu(const MtmlDevice *dev, MtmlVpu **vpu) {
+    HOOK_TRACE_PROFILE("mtmlDeviceInitVpu");
+    if (!vpu) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!device_to_gpu(dev)) return MTML_ERROR_INVALID_ARGUMENT;
+    *vpu = static_cast<MtmlVpu *>(make_handle(dev, kVpuTag));
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlDeviceFreeVpu(MtmlVpu *vpu) {
+    HOOK_TRACE_PROFILE("mtmlDeviceFreeVpu");
+    if (!vpu) return MTML_ERROR_INVALID_ARGUMENT;
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlMemoryGetTotal(const MtmlMemory *mem, unsigned long long *total) {
+    HOOK_TRACE_PROFILE("mtmlMemoryGetTotal");
+    if (!total) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = handle_to_gpu(mem, kMemoryTag);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    *total = g->memory.total;
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlMemoryGetUsed(const MtmlMemory *mem, unsigned long long *used) {
+    HOOK_TRACE_PROFILE("mtmlMemoryGetUsed");
+    if (!used) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = handle_to_gpu(mem, kMemoryTag);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    *used = g->memory.total - g->memory.free;
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlMemoryGetUtilization(const MtmlMemory *mem, unsigned int *utilization) {
+    HOOK_TRACE_PROFILE("mtmlMemoryGetUtilization");
+    if (!utilization) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = handle_to_gpu(mem, kMemoryTag);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    *utilization = g->utilization.memory;
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlGpuGetUtilization(const MtmlGpu *gpu, unsigned int *utilization) {
+    HOOK_TRACE_PROFILE("mtmlGpuGetUtilization");
+    if (!utilization) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    const MtGPU *g = handle_to_gpu(gpu, kGpuTag);
+    if (!g) return MTML_ERROR_INVALID_ARGUMENT;
+    *utilization = g->utilization.gpu;
+    return MTML_SUCCESS;
+}
+
+HOOK_C_API HOOK_DECL_EXPORT MtmlReturn mtmlGpuGetTemperature(const MtmlGpu *gpu, int *temp) {
+    HOOK_TRACE_PROFILE("mtmlGpuGetTemperature");
+    if (!temp) return MTML_ERROR_INVALID_ARGUMENT;
+    std::lock_guard<std::mutex> lk(g_mu);
+    if (!handle_to_gpu(gpu, kGpuTag)) return MTML_ERROR_INVALID_ARGUMENT;
+    *temp = 45;
+    return MTML_SUCCESS;
+}
