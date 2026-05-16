@@ -13,6 +13,7 @@ The `fake-gpu` project is designed to simulate GPU information, making it easier
 - Supports CUDA Driver, CUDA Runtime, NVML API
 - Supports nvidia-smi
 - Supports DCGM-Exporter
+- Supports Moore Threads MUSA GPUs (see [docs/musa.md](docs/musa.md))
 
 ## Requirements
 
