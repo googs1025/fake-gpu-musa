@@ -1,0 +1,35 @@
+moorethreads:
+  - name: MTT S80
+    uuid: MTGPU-0
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345678
+    mpc_count: 0
+    power:
+      minLimit: 50000
+      maxLimit: 250000
+      defaultLimit: 250000
+      enforcedLimit: 250000
+      usage: 60000
+    utilization:
+      gpu: 0
+      memory: 0
+    memory:
+      total: 17179869184    # 16 GiB
+      free:  17179869184
+    pci:
+      bus_id: "0000:00:1F.0"
+      bus: 1
+      device_id: 0
+      domain_id: 0
+      sub_system_id: 0
+    numa:
+      node: 0
+      cpu_affinity: "0-7"
+    mtlink:
+      version: "1.0"
+      capacity: 1
+      bandwidth: 16
+      peer_gpu_uuids: []
