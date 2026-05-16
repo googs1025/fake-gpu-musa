@@ -45,6 +45,9 @@ include_directories (
     ${PROJECT_SOURCE_DIR}/src/cuda
     ${PROJECT_SOURCE_DIR}/src/nvml
     ${PROJECT_SOURCE_DIR}/src/cudart
+    ${PROJECT_SOURCE_DIR}/src/musa
+    ${PROJECT_SOURCE_DIR}/src/mtml
+    ${PROJECT_SOURCE_DIR}/src/musart
 )
 
 file (GLOB HOOK_SRCS 
