@@ -30,7 +30,7 @@ WORKDIR /fake-gpu
 COPY --from=build /fake-gpu/output/lib64/libfakegpu.so /fake-gpu/libfakegpu.so
 COPY --from=gobuild /go/src/github.com/chaunceyjiang/fake-gpu/output/bin/device-injector /fake-gpu/device-injector
 COPY --from=gobuild /go/src/github.com/chaunceyjiang/fake-gpu/output/bin/nvidia-smi /fake-gpu/nvidia-smi
-COPY --from=gobuild /go/src/github.com/chaunceyjiang/fake-gpu/output/bin/mt-smi /fake-gpu/mt-smi
+COPY --from=gobuild /go/src/github.com/chaunceyjiang/fake-gpu/output/bin/mthreads-gmi /fake-gpu/mthreads-gmi
 COPY ./conf/fake-gpu.yaml /fake-gpu/fake-gpu.yaml
 COPY ./conf/fake-musa.yaml /fake-gpu/fake-musa.yaml
 COPY ./entrypoint.sh /fake-gpu/entrypoint.sh

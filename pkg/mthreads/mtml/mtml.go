@@ -1,5 +1,5 @@
 // Package mtml is a thin cgo wrapper around libmtml.so. It only covers
-// what mt-smi needs; expand on demand.
+// what mthreads-gmi needs; expand on demand.
 package mtml
 
 /*

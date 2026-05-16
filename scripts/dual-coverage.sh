@@ -6,8 +6,8 @@
 # T1  NVIDIA   nvidia-smi -L                                  >= 1 row
 # T2  NVIDIA   CUDA Driver smoke (cuInit + cuDeviceGetCount)  count == yaml
 # T3  NVIDIA   CUDA Runtime smoke (vectorAdd)                 exits 0
-# T4  MTHREADS mt-smi -L                                      >= 1 row
-# T5  MTHREADS mt-smi -L count matches conf/fake-musa.yaml    count == yaml
+# T4  MTHREADS mthreads-gmi -L                                      >= 1 row
+# T5  MTHREADS mthreads-gmi -L count matches conf/fake-musa.yaml    count == yaml
 # T6  MTHREADS muInit + muDeviceGetCount + muMemGetInfo_v2    stub errors
 # T7  MTHREADS musaSetDevice + musaMemGetInfo                 musaErrorNoDevice
 # T8  INJECTOR mutex refusal (NV + MUSA env)                  0 mounts
@@ -26,7 +26,7 @@ cd "$ROOT"
 LIB=${LIB:-output/lib64/libfakegpu.so}
 BIN=${BIN:-output/bin}
 HAVE_NATIVE=0
-if [ -f "$LIB" ] && [ -x "$BIN/nvidia-smi" ] && [ -x "$BIN/mt-smi" ]; then
+if [ -f "$LIB" ] && [ -x "$BIN/nvidia-smi" ] && [ -x "$BIN/mthreads-gmi" ]; then
   HAVE_NATIVE=1
 fi
 
@@ -59,16 +59,16 @@ if [ "$HAVE_NATIVE" = 1 ]; then
   fi
 
   # T4
-  printf 'T4: mt-smi -L ... '
-  if LD_PRELOAD="$LIB" "$BIN/mt-smi" -L | grep -qE '^GPU [0-9]+:'; then
+  printf 'T4: mthreads-gmi -L ... '
+  if LD_PRELOAD="$LIB" "$BIN/mthreads-gmi" -L | grep -qE '^GPU [0-9]+:'; then
     pass T4
   else
     fail T4
   fi
 
-  # T5: count rows in fake-musa.yaml and compare against mt-smi output.
+  # T5: count rows in fake-musa.yaml and compare against mthreads-gmi output.
   expected=$(count_yaml_rows conf/fake-musa.yaml)
-  got=$(LD_PRELOAD="$LIB" "$BIN/mt-smi" -L | grep -cE '^GPU [0-9]+:' || true)
+  got=$(LD_PRELOAD="$LIB" "$BIN/mthreads-gmi" -L | grep -cE '^GPU [0-9]+:' || true)
   printf 'T5: mtml count = yaml count (%s == %s) ... ' "$got" "$expected"
   if [ "$got" = "$expected" ] && [ "$expected" != "0" ]; then
     pass T5

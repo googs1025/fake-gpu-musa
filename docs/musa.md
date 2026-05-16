@@ -10,8 +10,8 @@ that single SO under each vendor's expected filenames.
 
 - A drop-in `libmusa.so` / `libmusart.so` / `libmtml.so` that satisfies
   `dlopen` and enumeration / introspection calls.
-- A `mt-smi` binary that renders an mt-smi-style table populated from
-  `conf/fake-musa.yaml`.
+- A `mthreads-gmi` binary that renders an mthreads-gmi-style table
+  populated from `conf/fake-musa.yaml`.
 - A `MUSA_VISIBLE_DEVICES` knob that mirrors `NVIDIA_VISIBLE_DEVICES`
   for filtering which fake GPUs a container sees.
 
@@ -85,7 +85,7 @@ UUID, useful when a single chart deploys to multiple nodes.
 ```bash
 make build BUILD_TYPE=Release
 FAKE_MUSA_CONFIG=$PWD/conf/fake-musa.yaml \
-  ./output/bin/mt-smi --libmtml=$PWD/output/lib64/libfakegpu.so
+  ./output/bin/mthreads-gmi --libmtml=$PWD/output/lib64/libfakegpu.so
 ```
 
 Expected: one row showing `MTT S80`, `MTGPU-0`, `0 MiB / 16384 MiB`,
@@ -111,8 +111,8 @@ Expected: one row showing `MTT S80`, `MTGPU-0`, `0 MiB / 16384 MiB`,
 2. **Brand enum.** `MtmlBrandType` only documents `MTML_BRAND_MTT=0`;
    consumers comparing against other constants may need to extend the
    stub.
-3. **mt-smi visual parity.** The rendered table is an approximation, not
-   a byte-for-byte clone of the real tool.
+3. **mthreads-gmi visual parity.** The rendered table is an
+   approximation, not a byte-for-byte clone of the real tool.
 4. **Mutex refusal observability.** When the injector skips a container
    for declaring both vendors, only a warning is logged. Surfacing a
    counter or refusing the Pod admission is a follow-up.

@@ -57,7 +57,7 @@ default: all version
 .PHONY: docker-build
 docker-build:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) -t $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(IMAGE_VERSION) -f Dockerfile .
-build-cmd: device-injector nvidia-smi mt-smi
+build-cmd: device-injector nvidia-smi mthreads-gmi
 
 device-injector:
 	$(GO) build -o ${OUTPUT_DIR}/bin/device-injector ./cmd/device-injector/main.go
@@ -65,8 +65,8 @@ device-injector:
 nvidia-smi:
 	$(GO) build -o ${OUTPUT_DIR}/bin/nvidia-smi ./cmd/nvidia-smi/main.go
 
-mt-smi:
-	$(GO) build -o ${OUTPUT_DIR}/bin/mt-smi ./cmd/mt-smi/main.go
+mthreads-gmi:
+	$(GO) build -o ${OUTPUT_DIR}/bin/mthreads-gmi ./cmd/mthreads-gmi/main.go
 
 # T6/T7 smoke binary: dlopen libfakegpu.so and assert MUSA stubs return error codes.
 musa-smoke:

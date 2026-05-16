@@ -201,9 +201,9 @@ func injectMounts(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjus
 
 	// CLI shims — one host binary may back several command names.
 	overrideSourceMap := map[string]string{
-		"nvidia-smi": "nvidia-smi",
-		"vectorAdd":  "nvidia-smi", // existing pre-image behaviour
-		"mt-smi":     "mt-smi",
+		"nvidia-smi":   "nvidia-smi",
+		"vectorAdd":    "nvidia-smi", // existing pre-image behaviour
+		"mthreads-gmi": "mthreads-gmi",
 	}
 	for _, command := range overrideCommand {
 		src, ok := overrideSourceMap[command]
@@ -326,7 +326,7 @@ func main() {
 	flag.StringVar(&sourceHostPath, "source-path", "/usr/local/fake-gpu", "source host path for mounts")
 	flag.StringVar(&gpusuffix, "gpu-uuid-suffix", "", "gpu uuid suffix for fake gpu")
 	flag.StringVar(&confPath, "conf", "", "fake gpu config file path")
-	flag.StringVar(&commands, "override-commands", "nvidia-smi,vectorAdd,mt-smi", "Override commands in the container")
+	flag.StringVar(&commands, "override-commands", "nvidia-smi,vectorAdd,mthreads-gmi", "Override commands in the container")
 	flag.StringVar(&vendor, "vendor", "nvidia", "GPU vendor to fake: nvidia | musa | both")
 	flag.Parse()
 	overrideCommand = strings.Split(commands, ",")

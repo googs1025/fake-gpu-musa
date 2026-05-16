@@ -21,9 +21,9 @@ func init() {
 }
 
 var RootCmd = &cobra.Command{
-	Use:   "mt-smi",
-	Short: "mt-smi is a fake equivalent of Moore Threads' mt-smi tool",
-	Long:  `mt-smi reads MTML through the fake-gpu hook and renders a mt-smi-like table.`,
+	Use:   "mthreads-gmi",
+	Short: "mthreads-gmi is a fake equivalent of Moore Threads' mthreads-gmi tool",
+	Long:  `mthreads-gmi reads MTML through the fake-gpu hook and renders a mthreads-gmi-like table.`,
 	Run: func(_ *cobra.Command, _ []string) {
 		if err := run(); err != nil {
 			fmt.Println("Error:", err)
@@ -84,7 +84,7 @@ func run() error {
 	fmt.Println(time.Now().Format(time.ANSIC))
 	t := table.NewWriter()
 	t.SetOutputMirror(os.Stdout)
-	t.SetTitle(fmt.Sprintf("MT-SMI (fake)    Driver Version: %s", driver))
+	t.SetTitle(fmt.Sprintf("MTHREADS-GMI (fake)    Driver Version: %s", driver))
 	t.AppendHeader(table.Row{"GPU", "Name", "UUID", "Temp", "Pwr", "Memory-Usage", "GPU-Util"})
 	for _, g := range gpus {
 		t.AppendRow(table.Row{
