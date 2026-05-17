@@ -94,6 +94,32 @@ FAKE_MUSA_CONFIG=$PWD/conf/fake-musa.yaml \
 - `src/common/mtml_2.2.0.h` 来自 [`MooreThreads/mthreads-ml-py`](https://github.com/MooreThreads/mthreads-ml-py)
 - MUSA Driver（`mu*`）与 MUSA Runtime（`musa*`）的符号清单是从 MUSA SDK 3.1.0 用 `nm -D` 提取后，裁剪为 introspection 类调用常用的 20+20 个枚举 / 属性 / 内存查询接口。[ollama PR #7554](https://github.com/ollama/ollama/pull/7554) 实现的 18 个符号是其子集
 
+## 按真实显存上报 sgpu-memory（实验性）
+
+HAMi 的 `pkg/device/mthreads/device.go` 把每张 MTT 卡硬编码成 `coresPerMthreadsGPU=16 + memoryPerMthreadsGPU=96` slice（每片 512 MiB → 48 GiB/卡）。这适合 MTT S3000/S4000/S5000 这类 48 GiB 数据中心卡，但 16 GiB 的 S80 等型号实际只够切 32 slice。
+
+`fake-mthreads-device-plugin` 提供 `--memory-from-yaml` flag 切换语义：
+
+| 模式                          | sgpu-memory 上报量                                   |
+| ----------------------------- | ---------------------------------------------------- |
+| 默认（HAMi-compat）           | `N × 96` —— 与 HAMi 常量保持一致                     |
+| `--memory-from-yaml`          | `Σ card.memory.total / 512MiB` —— 按 YAML 真实显存累加 |
+
+Helm 开关：
+
+```shell
+helm install fake-gpu fake-gpu-charts/fake-gpu -n kube-system \
+  --set vendor=musa \
+  --set mthreads.devicePlugin.enabled=true \
+  --set mthreads.devicePlugin.memoryFromYAML=true
+```
+
+**注意 HAMi 兼容性**：HAMi mutator 在用户只写 `mthreads.com/vgpu: 1` 时会自动补 `sgpu-memory: 96`。如果你开了 `--memory-from-yaml` 又用 16 GiB S80（只有 32 slice），这种 Pod 会因为 96 > 32 而 Pending。两种规避：
+- 开 `--memory-from-yaml` 时显式写 `mthreads.com/sgpu-memory: <≤per-card slice>`
+- 或者把 YAML 里 S80 的 `memory.total` 改成 48 GiB（`51539607552`）凑齐 96，让 HAMi 默认值能匹配
+
+这个 flag 主要用来在 fake 环境复现 HAMi 上游"显存常量硬编码"问题，作为未来给 HAMi 提 PR 的参考。
+
 ## 已知约束与风险
 
 1. **不透明 handle ABI**：`MtmlDevice` 用 `intptr_t index+1` 编码。如果同一地址空间内同时加载了真实 MTML 库会冲突 —— 在 fake-gpu 的 bind-mount 沙箱里因从不共存所以无碍

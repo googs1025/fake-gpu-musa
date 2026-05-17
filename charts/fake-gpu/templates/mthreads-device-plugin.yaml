@@ -44,6 +44,9 @@ spec:
             {{- if .Values.mthreads.devicePlugin.verbose }}
             - -verbose
             {{- end }}
+            {{- if .Values.mthreads.devicePlugin.memoryFromYAML }}
+            - -memory-from-yaml
+            {{- end }}
           securityContext:
             privileged: true
           resources:

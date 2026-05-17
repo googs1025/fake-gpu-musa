@@ -100,6 +100,14 @@ mthreads:
   devicePlugin:
     enabled: false
     verbose: false
+    # When true, sgpu-memory capacity is computed from each card's
+    # memory.total in fake-musa.yaml (slice = 512 MiB) instead of HAMi's
+    # hardcoded 96 slices/card. Useful when modelling non-48-GiB cards
+    # (e.g. MTT S80 = 32 slices). Off by default because HAMi's mutator
+    # auto-fills sgpu-memory=96 for plain `vgpu: 1` requests; with this
+    # on, requesters must pass an explicit sgpu-memory or the Pod will
+    # stay Pending on smaller cards.
+    memoryFromYAML: false
     nodeSelector: {}
     tolerations: []
     resources:
