@@ -1,3 +1,13 @@
+// libcuda.so.1 stub —— CUDA Driver API 的伪实现。
+//
+// 所有符号统一返回 CUDA_ERROR_INVALID_VALUE —— 我们不模拟任何 CUDA 计算,也不
+// 暴露虚假设备。容器里被注入的 libfakegpu.so 同时承载 NVML/CUDA Runtime/CUDA
+// Driver 三套 ABI:NVML 走 src/nvml/nvml_hook.cpp 渲染 YAML,CUDA Driver 这层
+// 故意一律 "大声失败",防止上层把 fake GPU 当真实计算设备使用。
+//
+// 调用链:
+//   容器代码 ──► dlopen("libcuda.so.1") ──► 命中 NRI 挂入的 libfakegpu.so
+//                                          └─► 本文件中的 cu* 函数
 #include "cuda_subset.h"
 #include "macro_common.h"
 #include "trace_profile.h"

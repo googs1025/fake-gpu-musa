@@ -22,6 +22,42 @@
 //     callers must request sgpu-memory explicitly instead of relying on
 //     the 96-default. Useful for surfacing the hardcoded-96 mismatch
 //     before pushing a fix upstream.
+//
+// 拓扑(一个进程,三个 plugin socket,与同一个 NRI injector 协作):
+//
+//	         fake-musa.yaml (N 张卡,可选 memory.total)
+//	                       │
+//	                       ▼
+//	             ┌───────────────────┐
+//	             │  capacity{cards,  │
+//	             │   memSlices}      │
+//	             └─────────┬─────────┘
+//	                       │
+//	  ┌────────────────────┼────────────────────┐
+//	  ▼                    ▼                    ▼
+//	pluginServer        pluginServer        pluginServer
+//	mthreads.com/vgpu   .../sgpu-core       .../sgpu-memory
+//	  N 个设备           N*16 个设备         memSlices 个设备
+//	  └────────┬───────────┴────────┬──────────┘
+//	           ▼                    ▼
+//	    向 kubelet 注册 device-plugin(3 个 socket)
+//	           │
+//	           ▼
+//	    node 对外声明 mthreads.com/* 资源容量
+//	           │
+//	           ▼
+//	    HAMi scheduler 决定 GPU index,
+//	    把 mthreads.com/gpu-index 注解打到 Pod 上
+//	           │
+//	           ▼
+//	    (这个 plugin 的 Allocate 故意返回空,理由见下面)
+//	           │
+//	           ▼
+//	    fake-gpu NRI device-injector 读注解,
+//	    bind-mount libfakegpu.so + 设置 MUSA_VISIBLE_DEVICES
+//
+// 空 Allocate 是关键设计:如果在这里返回 mount/env,会跟 NRI injector
+// 重复挂载,并和 kubelet 抢容器 env 的注入权。
 package main
 
 import (

@@ -1,3 +1,15 @@
+// libnvidia-ml.so.1 stub —— NVML 的伪实现,fake-gpu NVIDIA 路径的核心。
+//
+// 容器里 nvidia-smi / DCGM-Exporter / nvidia-container-runtime 拿到的"设备列表"
+// 都源自这里:NVML 调用进来 ──► init() 解析 FAKE_GPU_CONFIG 指向的 yaml ──►
+// 按 NVIDIA_VISIBLE_DEVICES 过滤 ──► 把 GPU 字段一项项填给调用方。
+//
+// 这是和 src/cuda/cuda_hook.cpp / src/cudart/cudart_hook.cpp 的关键差异 ——
+// 那两个 cuda/cudart 一律"大声失败",NVML 这层反而要尽量"像真的",因为
+// 上层调度组件全部信任 NVML 的输出。
+//
+// 配置加载: init() 内部加锁,首次调用读 FAKE_GPU_CONFIG 一次,应用 FAKE_GPU_SUFFIX
+// 给 UUID 加节点级后缀,后续调用走全局 nvidia_gpus 缓存。
 #include <yaml-cpp/yaml.h>
 
 #include <chrono>

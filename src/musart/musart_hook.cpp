@@ -12,16 +12,20 @@
 #include <mutex>
 #include <string>
 
-// libmusart.so stub.
+// libmusart.so stub —— MUSA Runtime API 的伪实现。
 //
-// Symbols cover the enumeration / attribute / memory query subset extracted
-// from MUSA SDK 3.1.0 libmusart.so (185 public musa* APIs total). Compute,
-// memcpy, memset, and stream APIs are excluded — fake-gpu workloads never
-// reach them. Query APIs (GetDeviceCount, GetDeviceProperties, MemGetInfo,
-// SetDevice/GetDevice, GetPCIBusId) are fake-implemented from
-// FAKE_MUSA_CONFIG yaml so tools like musaInfo (MUSA SDK deviceQuery clone)
-// can render device tables. Compute APIs (Malloc/Free) still return errors,
-// matching the design doc's "no fake compute" contract.
+// 暴露的符号是从 MUSA SDK 3.1.0 真实 libmusart.so(共 185 个 musa* 公开 API)
+// 里抽出来的"枚举 / 属性 / 显存查询"子集。计算、memcpy、memset、stream
+// 全部不模拟。
+//
+// 查询类(GetDeviceCount / GetDeviceProperties / MemGetInfo / SetDevice /
+// GetDevice / GetPCIBusId)按 FAKE_MUSA_CONFIG 指向的 yaml 来渲染,
+// 这样 musaInfo(MUSA SDK 自带的 deviceQuery 克隆)能打出像样的表格。
+// 计算类(Malloc/Free 等)依然返回错误码,保持设计文档里"绝不伪造计算"的约定。
+//
+// 配置加载: 首次 musaXxx 调用触发 load_config_locked,从 FAKE_MUSA_CONFIG 路径
+// 读 yaml -> 解析 moorethreads -> 应用 FAKE_MUSA_SUFFIX、MUSA_VISIBLE_DEVICES
+// 这两个 env 做后缀和过滤。同进程内只解析一次,后续调用走缓存。
 
 namespace {
 

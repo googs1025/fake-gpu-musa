@@ -1,3 +1,8 @@
+// libcudart.so stub —— CUDA Runtime API 的伪实现。
+//
+// 与 src/cuda/cuda_hook.cpp 同样的策略:全部返回 cudaErrorInvalidValue,既不假
+// 装设备存在也不假装计算成功。需要看到设备清单的工具走 NVML 路径(由
+// src/nvml/nvml_hook.cpp 渲染),不走 Runtime API。
 #include "cudart_subset.h"
 #include "macro_common.h"
 #include "trace_profile.h"

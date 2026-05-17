@@ -1,3 +1,33 @@
+// device-injector —— fake-gpu 的 NRI 插件。以 DaemonSet 容器形式跑在每个节点上,
+// 注册到 containerd 的 NRI。对每个声明了 fake GPU 的容器,它把 libfakegpu.so
+// bind-mount 覆盖到厂商库的位置,并注入 stub 库渲染 YAML 模型时要读的环境变量。
+//
+// 数据流(每次容器创建):
+//
+//	Pod spec / HAMi mutator
+//	   │   设置 NVIDIA_VISIBLE_DEVICES 或 MUSA_VISIBLE_DEVICES,
+//	   │   或者在 Pod 上打 mthreads.com/gpu-index 注解
+//	   ▼
+//	containerd ──► NRI ──► device-injector.CreateContainer
+//	                              │
+//	                              ▼
+//	                      injectMounts()
+//	                       │   ├── 根据 --vendor + 容器 env / 注解
+//	                       │   │   判定厂商(并强制单容器互斥)
+//	                       │   ├── 规划 bind-mount:libfakegpu.so 覆盖
+//	                       │   │   {libcuda.so.1, libnvidia-ml.so.1, libcudart.so}
+//	                       │   │   和/或 {libmusa.so, libmusart.so, libmtml.so}
+//	                       │   ├── 挂载 fake-{gpu,musa}.yaml + CLI shim
+//	                       │   └── AddEnv FAKE_GPU_CONFIG / FAKE_MUSA_CONFIG
+//	                       ▼              MUSA_VISIBLE_DEVICES(来自注解)
+//	            把 ContainerAdjustment 返回给 NRI
+//	                              │
+//	                              ▼
+//	            容器启动,dlopen("libcuda.so.1") /
+//	            dlopen("libmtml.so") 命中同一份 libfakegpu.so
+//
+// 整套架构里只有一份 libfakegpu.so 二进制,各厂商只是 bind-mount 目标文件名
+// 不同。更完整的视角见 docs/architecture.md。
 package main
 
 import (

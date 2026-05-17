@@ -1,17 +1,23 @@
+// libmusa.so stub —— MUSA Driver API 的伪实现。
+//
+// 暴露的符号是从 MUSA SDK 3.1.0 真实 libmusa.so(共 305 个 mu* 公开 API)里
+// 用 nm -D 抽出后,按"introspection / 枚举 / 属性 / context / MemGetInfo"
+// 这几类裁剪出来的。计算路径(kernel launch / memcpy / stream / event /
+// graph)故意不实现 —— fake-gpu 不模拟计算,任何走到那里的调用都视为错误。
+//
+// 设计原则: 大声失败而不是伪造结果 —— device 枚举类返回 MUSA_ERROR_NO_DEVICE
+// 让调用方看到"没有设备",计算类返回错误码而不是假成功。形状参照
+// src/cuda/cuda_hook.cpp。
+//
+// 调用链:
+//   容器代码 ──► dlopen("libmusa.so") ──► 命中 NRI 挂入的 libfakegpu.so
+//                                          └─► 本文件中的 mu* 函数
+//
 #include "musa_subset.h"
 #include "macro_common.h"
 #include "trace_profile.h"
 
 #include <cstring>
-
-// libmusa.so stub.
-//
-// Symbols cover the enumeration / attribute / context / MemGetInfo subset
-// extracted from MUSA SDK 3.1.0 libmusa.so (305 public mu* APIs total).
-// Compute-path APIs (kernel launch, memcpy, stream, event, graph) are
-// excluded — fake-gpu workloads never reach them. Every entry returns an
-// error so callers see "no device" instead of crashing, mirroring
-// src/cuda/cuda_hook.cpp.
 
 // ---- init / version / error ------------------------------------------------
 

@@ -1,6 +1,12 @@
-// MTML hook implementation. Backs MTML calls with values from a YAML config
-// file pointed to by FAKE_MUSA_CONFIG. Mirrors src/nvml/nvml_hook.cpp in
-// shape; symbol surface tracks the vendored mtml_2.2.0.h.
+// libmtml.so stub —— Moore Threads MTML(对标 NVML)的伪实现。
+//
+// 用 FAKE_MUSA_CONFIG 指向的 yaml 喂数据给所有 Mtml* 查询调用,
+// 让 mthreads-gmi / DCGM-Exporter 类的工具能拿到一份"看起来真"的设备表。
+// 形状参照 src/nvml/nvml_hook.cpp,符号面跟随仓库里的 src/common/mtml_2.2.0.h。
+//
+// 设备 handle ABI: 不透明 handle MtmlDevice* 用 (intptr_t)index + 1 编码 —— 0
+// 永远不是合法设备。这跟真实 MTML 的 handle 表示不一样,所以同地址空间内
+// 不能跟真实 MTML 共存(fake-gpu 是 bind-mount 沙箱,从不共存,无碍)。
 
 #include "mtml_subset.h"
 #include "musa_common.h"
