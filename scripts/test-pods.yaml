@@ -1,0 +1,56 @@
+# scripts/test-pods.yaml — exercise device-injector dispatch in minikube.
+# Pod A: NVIDIA path. Expects libcuda.so.1/libnvidia-ml.so.1/libcudart.so
+#        bind-mounts and FAKE_GPU_CONFIG env.
+# Pod B: MUSA path. Expects libmusa.so/libmusart.so/libmtml.so and
+#        FAKE_MUSA_CONFIG env.
+# Pod C: declares BOTH env vars — device-injector must refuse and inject
+#        nothing (the "mutex" contract).
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-nvidia
+  namespace: fake-gpu
+spec:
+  restartPolicy: Never
+  containers:
+  - name: test
+    image: ubuntu:22.04
+    imagePullPolicy: IfNotPresent
+    command: ["sleep", "3600"]
+    env:
+    - name: NVIDIA_VISIBLE_DEVICES
+      value: "all"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-musa
+  namespace: fake-gpu
+spec:
+  restartPolicy: Never
+  containers:
+  - name: test
+    image: ubuntu:22.04
+    imagePullPolicy: IfNotPresent
+    command: ["sleep", "3600"]
+    env:
+    - name: MUSA_VISIBLE_DEVICES
+      value: "all"
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: test-mutex
+  namespace: fake-gpu
+spec:
+  restartPolicy: Never
+  containers:
+  - name: test
+    image: ubuntu:22.04
+    imagePullPolicy: IfNotPresent
+    command: ["sleep", "3600"]
+    env:
+    - name: NVIDIA_VISIBLE_DEVICES
+      value: "all"
+    - name: MUSA_VISIBLE_DEVICES
+      value: "all"

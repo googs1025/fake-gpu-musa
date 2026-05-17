@@ -8,8 +8,8 @@
 # T3  NVIDIA   CUDA Runtime smoke (cudaSetDevice + MemInfo)   returns invalidValue
 # T4  MTHREADS mthreads-gmi                                   >= 1 GPU row
 # T5  MTHREADS mthreads-gmi row count matches fake-musa.yaml  count == yaml
-# T6  MTHREADS muInit + muDeviceGetCount + muMemGetInfo_v2    stub errors
-# T7  MTHREADS musaSetDevice + musaMemGetInfo                 musaErrorNoDevice
+# T6  MTHREADS muInit + muDeviceGetCount + muMemGetInfo_v2    fail-loud (driver layer)
+# T7  MTHREADS musaGetDeviceCount + musaSetDevice             yaml-backed success
 # T8  INJECTOR mutex refusal (NV + MUSA env)                  0 mounts
 # T9  INJECTOR vendor=both per-container plan                 dispatch ok
 #
@@ -100,7 +100,7 @@ if [ "$HAVE_NATIVE" = 1 ]; then
     fail T5
   fi
 
-  # T6/T7: MUSA driver+runtime stubs return error codes.
+  # T6/T7: MUSA driver stays fail-loud; MUSA runtime is yaml-backed.
   if [ ! -x "$BIN/musa-smoke" ]; then
     # Build on demand so devs don't have to remember the make target.
     "${CC:-cc}" -o "$BIN/musa-smoke" scripts/musa-smoke.c -ldl

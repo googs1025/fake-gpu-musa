@@ -90,6 +90,26 @@ initContainerImage:
 # NVIDIA_VISIBLE_DEVICES and MUSA_VISIBLE_DEVICES.
 vendor: nvidia
 
+# MThreads-specific knobs. The device-plugin DaemonSet registers the three
+# mthreads.com/* resources with kubelet so HAMi's scheduler treats this node
+# as a real MTT node. Allocate returns empty by design — the NRI injector
+# does the bind-mounts, keyed off the mthreads.com/gpu-index annotation
+# HAMi stamps onto the Pod. Off by default to keep the default chart shape
+# unchanged for NVIDIA-only users.
+mthreads:
+  devicePlugin:
+    enabled: false
+    verbose: false
+    nodeSelector: {}
+    tolerations: []
+    resources:
+      limits:
+        cpu: 100m
+        memory: 64Mi
+      requests:
+        cpu: 10m
+        memory: 16Mi
+
 # This is for setting the nri plugin configuration.
 nri:
   plugin:

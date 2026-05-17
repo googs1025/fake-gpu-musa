@@ -33,3 +33,16 @@ moorethreads:
       capacity: 1
       bandwidth: 16
       peer_gpu_uuids: []
+    # compute backs musaGetDeviceProperties / musaInfo deviceQuery output.
+    # Values mirror MTT S80 published specs; override per-GPU as needed.
+    compute:
+      capability_major: 2
+      capability_minor: 2
+      multiprocessor_count: 32
+      clock_rate_khz: 1900000        # 1.90 GHz
+      memory_clock_rate_khz: 1000000 # 1.00 GHz
+      memory_bus_width: 256          # bits
+      l2_cache_size: 4194304         # 4 MiB
+      warp_size: 128
+      max_threads_per_block: 1024
+      max_threads_per_mp: 2048

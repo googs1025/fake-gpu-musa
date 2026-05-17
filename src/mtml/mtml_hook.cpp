@@ -40,20 +40,29 @@ void load_config_locked() {
     }
     if (const char *vis = std::getenv("MUSA_VISIBLE_DEVICES")) {
         if (std::strcmp(vis, "all") != 0) {
+            // Accept both numeric indices ("0,1") and full UUIDs
+            // ("MTGPU-0[-suffix]"). HAMi's mthreads.com/gpu-index annotation
+            // expands to indices; the real MUSA SDK also accepts UUIDs.
+            auto match = [](const MtGPU &g, size_t idx, const std::string &t) {
+                if (g.uuid == t) return true;
+                if (!t.empty() && t.find_first_not_of("0123456789") == std::string::npos) {
+                    return idx == static_cast<size_t>(std::stoul(t));
+                }
+                return false;
+            };
             MtGPUList filtered;
             std::string s(vis);
             size_t prev = 0, pos;
-            while ((pos = s.find(',', prev)) != std::string::npos) {
-                std::string token = s.substr(prev, pos - prev);
-                for (auto &g : g_gpus) {
-                    if (g.uuid == token) filtered.push_back(g);
+            auto consume = [&](const std::string &token) {
+                for (size_t i = 0; i < g_gpus.size(); ++i) {
+                    if (match(g_gpus[i], i, token)) filtered.push_back(g_gpus[i]);
                 }
+            };
+            while ((pos = s.find(',', prev)) != std::string::npos) {
+                consume(s.substr(prev, pos - prev));
                 prev = pos + 1;
             }
-            std::string token = s.substr(prev);
-            for (auto &g : g_gpus) {
-                if (g.uuid == token) filtered.push_back(g);
-            }
+            consume(s.substr(prev));
             g_gpus.swap(filtered);
         }
     }

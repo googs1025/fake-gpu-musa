@@ -1,0 +1,83 @@
+# Variant config: 4× MTT S4000 (data-center inference card, 48 GiB).
+# Distinct from the S80 default — bigger memory, higher mpc_count, newer
+# capability tuple — so backend code that branches on device model can be
+# exercised without recompiling the .so. Swap into the chart by pointing
+# the `fake-gpu-musa-configmap` at this file.
+moorethreads:
+  - name: MTT S4000
+    uuid: MTGPU-0
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.2.0.0
+    mtbios_version: 0.7.0.4
+    serial: MTTS4000-0
+    mpc_count: 4
+    power:
+      minLimit: 100000
+      maxLimit: 250000
+      defaultLimit: 250000
+      enforcedLimit: 250000
+      usage: 80000
+    utilization: {gpu: 0, memory: 0}
+    memory:
+      total: 51539607552    # 48 GiB
+      free:  51539607552
+    pci: {bus_id: "0000:01:00.0", bus: 1, device_id: 0, domain_id: 0, sub_system_id: 0}
+    numa: {node: 0, cpu_affinity: "0-15"}
+    mtlink: {version: "1.0", capacity: 4, bandwidth: 32, peer_gpu_uuids: []}
+    compute:
+      capability_major: 3
+      capability_minor: 1
+      multiprocessor_count: 128
+      clock_rate_khz: 2100000        # 2.10 GHz
+      memory_clock_rate_khz: 1500000 # 1.50 GHz
+      memory_bus_width: 384
+      l2_cache_size: 8388608         # 8 MiB
+      warp_size: 128
+      max_threads_per_block: 1024
+      max_threads_per_mp: 2048
+  - name: MTT S4000
+    uuid: MTGPU-1
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.2.0.0
+    mtbios_version: 0.7.0.4
+    serial: MTTS4000-1
+    mpc_count: 4
+    power: {minLimit: 100000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 80000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 51539607552, free: 51539607552}
+    pci: {bus_id: "0000:02:00.0", bus: 2, device_id: 1, domain_id: 0, sub_system_id: 0}
+    numa: {node: 0, cpu_affinity: "16-31"}
+    mtlink: {version: "1.0", capacity: 4, bandwidth: 32, peer_gpu_uuids: []}
+    compute: {capability_major: 3, capability_minor: 1, multiprocessor_count: 128, clock_rate_khz: 2100000, memory_clock_rate_khz: 1500000, memory_bus_width: 384, l2_cache_size: 8388608, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}
+  - name: MTT S4000
+    uuid: MTGPU-2
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.2.0.0
+    mtbios_version: 0.7.0.4
+    serial: MTTS4000-2
+    mpc_count: 4
+    power: {minLimit: 100000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 80000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 51539607552, free: 51539607552}
+    pci: {bus_id: "0000:03:00.0", bus: 3, device_id: 2, domain_id: 0, sub_system_id: 0}
+    numa: {node: 1, cpu_affinity: "32-47"}
+    mtlink: {version: "1.0", capacity: 4, bandwidth: 32, peer_gpu_uuids: []}
+    compute: {capability_major: 3, capability_minor: 1, multiprocessor_count: 128, clock_rate_khz: 2100000, memory_clock_rate_khz: 1500000, memory_bus_width: 384, l2_cache_size: 8388608, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}
+  - name: MTT S4000
+    uuid: MTGPU-3
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.2.0.0
+    mtbios_version: 0.7.0.4
+    serial: MTTS4000-3
+    mpc_count: 4
+    power: {minLimit: 100000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 80000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 51539607552, free: 51539607552}
+    pci: {bus_id: "0000:04:00.0", bus: 4, device_id: 3, domain_id: 0, sub_system_id: 0}
+    numa: {node: 1, cpu_affinity: "48-63"}
+    mtlink: {version: "1.0", capacity: 4, bandwidth: 32, peer_gpu_uuids: []}
+    compute: {capability_major: 3, capability_minor: 1, multiprocessor_count: 128, clock_rate_khz: 2100000, memory_clock_rate_khz: 1500000, memory_bus_width: 384, l2_cache_size: 8388608, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}

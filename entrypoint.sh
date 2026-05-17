@@ -2,8 +2,13 @@
 echo "create fake gpu device"
 # count the number of gpu — sum NVIDIA + MUSA entries so the combined
 # device node range covers both fake vendors.
-nv_gpu_num=$(grep -c cuda_version /fake-gpu/fake-gpu.yaml 2>/dev/null || echo 0)
-musa_gpu_num=$(grep -c '^  - name:' /fake-gpu/fake-musa.yaml 2>/dev/null || echo 0)
+# grep -c always prints a number AND exits non-zero on no-match; the prior
+# `|| echo 0` idiom doubled the zero when grep already printed 0. Take just
+# the first line of stdout and ignore the exit code so dash arithmetic sees
+# a single integer.
+count() { grep -c "$2" "$1" 2>/dev/null | head -1; }
+nv_gpu_num=$(count /fake-gpu/fake-gpu.yaml cuda_version)
+musa_gpu_num=$(count /fake-gpu/fake-musa.yaml '^- name:')
 gpu_num=$((nv_gpu_num + musa_gpu_num))
 for i in `seq 0 $gpu_num`
 do

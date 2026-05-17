@@ -126,6 +126,55 @@ func TestVendorBoth(t *testing.T) {
 	}
 }
 
+// TestHAMiAnnotationTrigger: when the Pod carries mthreads.com/gpu-index
+// (HAMi scheduler's hand-off to the device-plugin), the injector must
+// (1) treat the container as MUSA-requested even without MUSA_VISIBLE_DEVICES
+// in env, and (2) inject MUSA_VISIBLE_DEVICES set to the annotation value.
+func TestHAMiAnnotationTrigger(t *testing.T) {
+	initTestGlobals(t, "both")
+	overrideCommand = nil
+	pod := &api.PodSandbox{
+		Name:        "hami-pod",
+		Annotations: map[string]string{"mthreads.com/gpu-index": "0,2"},
+	}
+	ctr := newCtr("no-env") // no MUSA_VISIBLE_DEVICES in env
+	adj := &api.ContainerAdjustment{}
+	if err := injectMounts(pod, ctr, adj); err != nil {
+		t.Fatalf("injectMounts: %v", err)
+	}
+	if countDestPrefix(adj, "libmusa.so") == 0 {
+		t.Fatal("expected libmusa.so mount when HAMi annotation is set")
+	}
+	got, ok := envValue(adj, "MUSA_VISIBLE_DEVICES")
+	if !ok {
+		t.Fatal("expected MUSA_VISIBLE_DEVICES env injection")
+	}
+	if got != "0,2" {
+		t.Errorf("MUSA_VISIBLE_DEVICES=%q, want %q (from annotation)", got, "0,2")
+	}
+}
+
+// TestHAMiAnnotationEnvWins: if the container already declares
+// MUSA_VISIBLE_DEVICES in env, the env wins — annotation is only a
+// fallback for the HAMi path where the device-plugin doesn't set env.
+func TestHAMiAnnotationEnvWins(t *testing.T) {
+	initTestGlobals(t, "musa")
+	overrideCommand = nil
+	pod := &api.PodSandbox{
+		Name:        "mixed-pod",
+		Annotations: map[string]string{"mthreads.com/gpu-index": "0,2"},
+	}
+	ctr := newCtr("env-wins", "MUSA_VISIBLE_DEVICES=MTGPU-7")
+	adj := &api.ContainerAdjustment{}
+	if err := injectMounts(pod, ctr, adj); err != nil {
+		t.Fatalf("injectMounts: %v", err)
+	}
+	// Existing env carries through unchanged; we should NOT overwrite.
+	if v, ok := envValue(adj, "MUSA_VISIBLE_DEVICES"); ok {
+		t.Errorf("did not expect MUSA_VISIBLE_DEVICES injection when env already set, got %q", v)
+	}
+}
+
 // TestNvidiaOnlyVendor: vendor=nvidia must ignore MUSA env even when the
 // container declares it (so a chart accidentally landing on a MUSA-only
 // node still behaves like the legacy NVIDIA path).

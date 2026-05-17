@@ -39,6 +39,14 @@ var musaLibraryFiles = []string{
 	"libmtml.so",
 }
 
+// hamiGPUIndexAnnotation is the comma-separated GPU index list HAMi's
+// scheduler stamps onto a Pod after picking devices for it. fake-gpu's
+// own fake-mthreads-device-plugin returns an empty Allocate response, so
+// this annotation is the only signal we have that "this Pod was scheduled
+// for MUSA on this node". When present, we both inject the libfakegpu.so
+// bind-mounts and set MUSA_VISIBLE_DEVICES from the annotation value.
+const hamiGPUIndexAnnotation = "mthreads.com/gpu-index"
+
 // an annotated mount
 type mount struct {
 	Source      string   `json:"source"`
@@ -109,6 +117,10 @@ func injectMounts(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjus
 
 	nvRequested := false
 	musaRequested := false
+	// When MUSA is requested via the HAMi annotation, the container env
+	// doesn't yet carry MUSA_VISIBLE_DEVICES — we synthesize it from the
+	// annotation value and AddEnv it below.
+	musaVisibleFromAnnotation := ""
 
 	if wantNvidia {
 		if env, ok := findEnvWithNameAndValue("NVIDIA_VISIBLE_DEVICES", ctr.Env); ok && env != "void" {
@@ -127,6 +139,11 @@ func injectMounts(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjus
 			musaRequested = true
 			if env == "all" {
 				visibleAllDevice = true
+			}
+		} else if pod != nil {
+			if idx, ok := pod.Annotations[hamiGPUIndexAnnotation]; ok && idx != "" {
+				musaRequested = true
+				musaVisibleFromAnnotation = idx
 			}
 		}
 	}
@@ -242,6 +259,11 @@ func injectMounts(pod *api.PodSandbox, ctr *api.Container, a *api.ContainerAdjus
 			log.Infof("%s: injected env %q -> %q...", containerName(pod, ctr),
 				p.configEnv, dest)
 		}
+	}
+	if musaVisibleFromAnnotation != "" {
+		a.AddEnv("MUSA_VISIBLE_DEVICES", musaVisibleFromAnnotation)
+		log.Infof("%s: injected MUSA_VISIBLE_DEVICES=%q from %s annotation",
+			containerName(pod, ctr), musaVisibleFromAnnotation, hamiGPUIndexAnnotation)
 	}
 	if len(gpusuffix) > 0 {
 		a.AddEnv("FAKE_GPU_SUFFIX", gpusuffix)

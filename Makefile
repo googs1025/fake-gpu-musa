@@ -57,7 +57,8 @@ default: all version
 .PHONY: docker-build
 docker-build:
 	docker build --build-arg BUILD_TYPE=$(BUILD_TYPE) -t $(IMAGE_REPOSITORY)/$(IMAGE_NAME):$(IMAGE_VERSION) -f Dockerfile .
-build-cmd: device-injector nvidia-smi mthreads-gmi
+.PHONY: build-cmd device-injector nvidia-smi mthreads-gmi fake-mthreads-device-plugin
+build-cmd: device-injector nvidia-smi mthreads-gmi fake-mthreads-device-plugin
 
 device-injector:
 	$(GO) build -o ${OUTPUT_DIR}/bin/device-injector ./cmd/device-injector/main.go
@@ -67,6 +68,13 @@ nvidia-smi:
 
 mthreads-gmi:
 	$(GO) build -o ${OUTPUT_DIR}/bin/mthreads-gmi ./cmd/mthreads-gmi/main.go
+
+# k8s device-plugin v1beta1 server: registers mthreads.com/{vgpu,sgpu-core,
+# sgpu-memory} so HAMi treats the node as a real MThreads node. Allocate
+# returns empty — the NRI injector handles bind-mounts via the
+# mthreads.com/gpu-index annotation.
+fake-mthreads-device-plugin:
+	$(GO) build -o ${OUTPUT_DIR}/bin/fake-mthreads-device-plugin ./cmd/fake-mthreads-device-plugin
 
 # T2/T3 and T6/T7 smoke binaries: dlopen libfakegpu.so and assert that the
 # CUDA / MUSA stubs return their documented "fail loud" error codes.

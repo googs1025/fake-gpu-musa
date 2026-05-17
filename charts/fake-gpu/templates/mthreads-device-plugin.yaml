@@ -1,0 +1,65 @@
+{{- if .Values.mthreads.devicePlugin.enabled }}
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: {{ include "fake-gpu.fullname" . }}-mthreads-dp
+  labels:
+    {{- include "fake-gpu.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mthreads-device-plugin
+spec:
+  selector:
+    matchLabels:
+      {{- include "fake-gpu.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mthreads-device-plugin
+  template:
+    metadata:
+      labels:
+        {{- include "fake-gpu.labels" . | nindent 8 }}
+        app.kubernetes.io/component: mthreads-device-plugin
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "fake-gpu.serviceAccountName" . }}
+      nodeSelector:
+        kubernetes.io/os: "linux"
+        {{- with .Values.mthreads.devicePlugin.nodeSelector }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.mthreads.devicePlugin.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: device-plugin
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          # Bypass entrypoint.sh — the device-plugin needs neither mknod
+          # nor the /fake-gpu/* -> /etc/fake-gpu copy step.
+          command:
+            - /fake-gpu/fake-mthreads-device-plugin
+            - -config
+            - /etc/fake-gpu/fake-musa.yaml
+            {{- if .Values.mthreads.devicePlugin.verbose }}
+            - -verbose
+            {{- end }}
+          securityContext:
+            privileged: true
+          resources:
+            {{- toYaml .Values.mthreads.devicePlugin.resources | nindent 12 }}
+          volumeMounts:
+            - name: device-plugin-sockets
+              mountPath: /var/lib/kubelet/device-plugins
+            - name: musa-config-file
+              mountPath: /etc/fake-gpu/fake-musa.yaml
+              subPath: fake-musa.yaml
+      volumes:
+        - name: device-plugin-sockets
+          hostPath:
+            path: /var/lib/kubelet/device-plugins
+            type: Directory
+        - name: musa-config-file
+          configMap:
+            name: {{ .Release.Name }}-musa-configmap
+{{- end }}

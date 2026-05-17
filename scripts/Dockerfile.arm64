@@ -1,34 +1,33 @@
+# Dockerfile.arm64 — minikube-on-Apple-Silicon test image.
+# Differs from the main Dockerfile only by:
+#   - ubuntu:22.04 base (apt cmake >= 3.22, no x86_64 cmake tarball needed)
+#   - arch-neutral build steps
+# Keeps the same final layout as Dockerfile so charts/fake-gpu works unchanged.
 FROM ubuntu:22.04 AS build
 WORKDIR /fake-gpu
+COPY . .
 ENV DEBIAN_FRONTEND=noninteractive
-ARG BUILD_TYPE
-# Install build deps BEFORE copying source so that edits to repo files
-# don't bust the apt-get layer cache (apt-get is expensive and flaky on
-# upstream mirrors). cmake comes from apt instead of a pinned x86_64
-# tarball so the image builds on both amd64 and arm64.
+ARG BUILD_TYPE=Release
 RUN apt-get update && apt-get install -y \
     build-essential \
-    cmake \
     ninja-build \
+    cmake \
     git \
-    wget
-
-COPY . .
-
+    wget \
+ && rm -rf /var/lib/apt/lists/*
 RUN make build BUILD_TYPE=${BUILD_TYPE}
 
-FROM golang:1.25-bookworm AS gobuild
+FROM golang:1.22.5-bullseye AS gobuild
 WORKDIR /go/src/github.com/chaunceyjiang/fake-gpu
 COPY . .
 RUN make build-cmd
 
-FROM ubuntu:24.04
+FROM ubuntu:22.04
 WORKDIR /fake-gpu
 COPY --from=build /fake-gpu/output/lib64/libfakegpu.so /fake-gpu/libfakegpu.so
 COPY --from=gobuild /go/src/github.com/chaunceyjiang/fake-gpu/output/bin/device-injector /fake-gpu/device-injector
 COPY --from=gobuild /go/src/github.com/chaunceyjiang/fake-gpu/output/bin/nvidia-smi /fake-gpu/nvidia-smi
 COPY --from=gobuild /go/src/github.com/chaunceyjiang/fake-gpu/output/bin/mthreads-gmi /fake-gpu/mthreads-gmi
-COPY --from=gobuild /go/src/github.com/chaunceyjiang/fake-gpu/output/bin/fake-mthreads-device-plugin /fake-gpu/fake-mthreads-device-plugin
 COPY ./conf/fake-gpu.yaml /fake-gpu/fake-gpu.yaml
 COPY ./conf/fake-musa.yaml /fake-gpu/fake-musa.yaml
 COPY ./entrypoint.sh /fake-gpu/entrypoint.sh

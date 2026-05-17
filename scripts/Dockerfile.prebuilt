@@ -1,0 +1,13 @@
+# Dockerfile.prebuilt — package already-built artifacts into the runtime image.
+# Used by minikube-local testing where build deps live on the host (or inside
+# the minikube VM) and we just want a thin runnable layer.
+FROM ubuntu:22.04
+WORKDIR /fake-gpu
+COPY output/lib64/libfakegpu.so /fake-gpu/libfakegpu.so
+COPY output/bin/device-injector /fake-gpu/device-injector
+COPY output/bin/nvidia-smi /fake-gpu/nvidia-smi
+COPY output/bin/mthreads-gmi /fake-gpu/mthreads-gmi
+COPY conf/fake-gpu.yaml /fake-gpu/fake-gpu.yaml
+COPY conf/fake-musa.yaml /fake-gpu/fake-musa.yaml
+COPY entrypoint.sh /fake-gpu/entrypoint.sh
+ENTRYPOINT ["/fake-gpu/entrypoint.sh"]

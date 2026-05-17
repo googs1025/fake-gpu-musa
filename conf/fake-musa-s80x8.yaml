@@ -1,0 +1,156 @@
+# Variant config: 8× MTT S80 — exercises the multi-card path end-to-end
+# (kubelet capacity, HAMi scheduling math, MUSA_VISIBLE_DEVICES filter,
+# mthreads-gmi enumeration). Swap into the chart by pointing the
+# `fake-gpu-musa-configmap` at this file instead of the default
+# conf/fake-musa.yaml.
+moorethreads:
+  - name: MTT S80
+    uuid: MTGPU-0
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345670
+    mpc_count: 1
+    power:
+      minLimit: 50000
+      maxLimit: 250000
+      defaultLimit: 250000
+      enforcedLimit: 250000
+      usage: 60000
+    utilization:
+      gpu: 0
+      memory: 0
+    memory:
+      total: 17179869184    # 16 GiB
+      free:  17179869184
+    pci:
+      bus_id: "0000:00:10.0"
+      bus: 1
+      device_id: 0
+      domain_id: 0
+      sub_system_id: 0
+    numa:
+      node: 0
+      cpu_affinity: "0-7"
+    mtlink:
+      version: "1.0"
+      capacity: 1
+      bandwidth: 16
+      peer_gpu_uuids: []
+    compute:
+      capability_major: 2
+      capability_minor: 2
+      multiprocessor_count: 32
+      clock_rate_khz: 1900000
+      memory_clock_rate_khz: 1000000
+      memory_bus_width: 256
+      l2_cache_size: 4194304
+      warp_size: 128
+      max_threads_per_block: 1024
+      max_threads_per_mp: 2048
+  - name: MTT S80
+    uuid: MTGPU-1
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345671
+    mpc_count: 1
+    power: {minLimit: 50000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 60000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 17179869184, free: 17179869184}
+    pci: {bus_id: "0000:00:11.0", bus: 1, device_id: 1, domain_id: 0, sub_system_id: 0}
+    numa: {node: 0, cpu_affinity: "0-7"}
+    mtlink: {version: "1.0", capacity: 1, bandwidth: 16, peer_gpu_uuids: []}
+    compute: {capability_major: 2, capability_minor: 2, multiprocessor_count: 32, clock_rate_khz: 1900000, memory_clock_rate_khz: 1000000, memory_bus_width: 256, l2_cache_size: 4194304, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}
+  - name: MTT S80
+    uuid: MTGPU-2
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345672
+    mpc_count: 1
+    power: {minLimit: 50000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 60000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 17179869184, free: 17179869184}
+    pci: {bus_id: "0000:00:12.0", bus: 1, device_id: 2, domain_id: 0, sub_system_id: 0}
+    numa: {node: 0, cpu_affinity: "0-7"}
+    mtlink: {version: "1.0", capacity: 1, bandwidth: 16, peer_gpu_uuids: []}
+    compute: {capability_major: 2, capability_minor: 2, multiprocessor_count: 32, clock_rate_khz: 1900000, memory_clock_rate_khz: 1000000, memory_bus_width: 256, l2_cache_size: 4194304, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}
+  - name: MTT S80
+    uuid: MTGPU-3
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345673
+    mpc_count: 1
+    power: {minLimit: 50000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 60000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 17179869184, free: 17179869184}
+    pci: {bus_id: "0000:00:13.0", bus: 1, device_id: 3, domain_id: 0, sub_system_id: 0}
+    numa: {node: 0, cpu_affinity: "8-15"}
+    mtlink: {version: "1.0", capacity: 1, bandwidth: 16, peer_gpu_uuids: []}
+    compute: {capability_major: 2, capability_minor: 2, multiprocessor_count: 32, clock_rate_khz: 1900000, memory_clock_rate_khz: 1000000, memory_bus_width: 256, l2_cache_size: 4194304, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}
+  - name: MTT S80
+    uuid: MTGPU-4
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345674
+    mpc_count: 1
+    power: {minLimit: 50000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 60000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 17179869184, free: 17179869184}
+    pci: {bus_id: "0000:00:14.0", bus: 1, device_id: 4, domain_id: 0, sub_system_id: 0}
+    numa: {node: 1, cpu_affinity: "16-23"}
+    mtlink: {version: "1.0", capacity: 1, bandwidth: 16, peer_gpu_uuids: []}
+    compute: {capability_major: 2, capability_minor: 2, multiprocessor_count: 32, clock_rate_khz: 1900000, memory_clock_rate_khz: 1000000, memory_bus_width: 256, l2_cache_size: 4194304, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}
+  - name: MTT S80
+    uuid: MTGPU-5
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345675
+    mpc_count: 1
+    power: {minLimit: 50000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 60000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 17179869184, free: 17179869184}
+    pci: {bus_id: "0000:00:15.0", bus: 1, device_id: 5, domain_id: 0, sub_system_id: 0}
+    numa: {node: 1, cpu_affinity: "16-23"}
+    mtlink: {version: "1.0", capacity: 1, bandwidth: 16, peer_gpu_uuids: []}
+    compute: {capability_major: 2, capability_minor: 2, multiprocessor_count: 32, clock_rate_khz: 1900000, memory_clock_rate_khz: 1000000, memory_bus_width: 256, l2_cache_size: 4194304, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}
+  - name: MTT S80
+    uuid: MTGPU-6
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345676
+    mpc_count: 1
+    power: {minLimit: 50000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 60000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 17179869184, free: 17179869184}
+    pci: {bus_id: "0000:00:16.0", bus: 1, device_id: 6, domain_id: 0, sub_system_id: 0}
+    numa: {node: 1, cpu_affinity: "24-31"}
+    mtlink: {version: "1.0", capacity: 1, bandwidth: 16, peer_gpu_uuids: []}
+    compute: {capability_major: 2, capability_minor: 2, multiprocessor_count: 32, clock_rate_khz: 1900000, memory_clock_rate_khz: 1000000, memory_bus_width: 256, l2_cache_size: 4194304, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}
+  - name: MTT S80
+    uuid: MTGPU-7
+    driver_version: 2.7.0
+    brand: MTT
+    vbios_version: 1.0.0.0
+    mtbios_version: 0.4.0.4
+    serial: MTT12345677
+    mpc_count: 1
+    power: {minLimit: 50000, maxLimit: 250000, defaultLimit: 250000, enforcedLimit: 250000, usage: 60000}
+    utilization: {gpu: 0, memory: 0}
+    memory: {total: 17179869184, free: 17179869184}
+    pci: {bus_id: "0000:00:17.0", bus: 1, device_id: 7, domain_id: 0, sub_system_id: 0}
+    numa: {node: 1, cpu_affinity: "24-31"}
+    mtlink: {version: "1.0", capacity: 1, bandwidth: 16, peer_gpu_uuids: []}
+    compute: {capability_major: 2, capability_minor: 2, multiprocessor_count: 32, clock_rate_khz: 1900000, memory_clock_rate_khz: 1000000, memory_bus_width: 256, l2_cache_size: 4194304, warp_size: 128, max_threads_per_block: 1024, max_threads_per_mp: 2048}

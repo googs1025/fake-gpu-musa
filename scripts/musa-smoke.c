@@ -1,14 +1,23 @@
-// musa-smoke.c — dlopen libfakegpu.so and verify the MUSA Driver/Runtime
-// stubs return the documented "fail loud" error codes (T6/T7 of the dual
-// coverage matrix). The design decision is "return error rather than fake
-// compute"; this smoke test pins that contract in CI.
+// musa-smoke.c — dlopen libfakegpu.so and verify MUSA Driver vs Runtime
+// contracts (T6/T7 of the dual coverage matrix).
 //
+// Two layers, two contracts:
+//   - Driver API (mu*, libmusa.so): fail-loud. fake-gpu does not fake the
+//     driver because the driver layer rarely runs without real silicon, so
+//     callers that reach it deserve a clear "no device" signal.
+//   - Runtime API (musa*, libmusart.so): fake-implemented for query paths
+//     (GetDeviceCount, SetDevice, GetDeviceProperties, MemGetInfo) so
+//     deviceQuery-style tools (musaInfo) render a plausible table. Compute
+//     APIs (Malloc/Free/Memcpy) still fail-loud.
+//
+// Pinned expectations:
 //   muInit(0)                 -> 0 (MUSA_SUCCESS)
-//   muDeviceGetCount(&n)      -> 0 with n == 0
+//   muDeviceGetCount(&n)      -> 0 with n == 0          (driver: no device)
 //   muMemGetInfo_v2(&f, &t)   -> MU_ERROR_NOT_INITIALIZED (3)
-//   musaSetDevice(0)          -> musaErrorNoDevice (38)
+//   musaGetDeviceCount(&n)    -> 0 with n >= 1          (runtime: yaml-backed)
+//   musaSetDevice(0)          -> 0 (musaSuccess)        (runtime: yaml-backed)
 //
-// Exit codes: 0 ok; 1 dlopen failure; 10..13 individual check failures.
+// Exit codes: 0 ok; 1 dlopen failure; 10..14 individual check failures.
 
 #include <dlfcn.h>
 #include <stdio.h>
@@ -28,10 +37,12 @@ int main(void) {
     int  (*muInit)(unsigned)                  = (int (*)(unsigned))dlsym(h, "muInit");
     int  (*muDevCount)(int *)                 = (int (*)(int *))dlsym(h, "muDeviceGetCount");
     int  (*muMemInfo)(size_t *, size_t *)     = (int (*)(size_t *, size_t *))dlsym(h, "muMemGetInfo_v2");
+    int  (*musaCount)(int *)                  = (int (*)(int *))dlsym(h, "musaGetDeviceCount");
     int  (*musaSet)(int)                      = (int (*)(int))dlsym(h, "musaSetDevice");
 
-    if (!muInit || !muDevCount || !muMemInfo || !musaSet) {
-        fprintf(stderr, "dlsym: missing one of muInit/muDeviceGetCount/muMemGetInfo_v2/musaSetDevice\n");
+    if (!muInit || !muDevCount || !muMemInfo || !musaCount || !musaSet) {
+        fprintf(stderr, "dlsym: missing one of muInit/muDeviceGetCount/"
+                        "muMemGetInfo_v2/musaGetDeviceCount/musaSetDevice\n");
         return 1;
     }
 
@@ -54,10 +65,17 @@ int main(void) {
         return 12;
     }
 
-    rc = musaSet(0);
-    if (rc != 38 /* musaErrorNoDevice */) {
-        fprintf(stderr, "musaSetDevice: rc=%d (expected 38 / musaErrorNoDevice)\n", rc);
+    int rn = -1;
+    rc = musaCount(&rn);
+    if (rc != 0 || rn < 1) {
+        fprintf(stderr, "musaGetDeviceCount: rc=%d count=%d (expected rc=0 count>=1)\n", rc, rn);
         return 13;
+    }
+
+    rc = musaSet(0);
+    if (rc != 0 /* musaSuccess */) {
+        fprintf(stderr, "musaSetDevice: rc=%d (expected 0 / musaSuccess)\n", rc);
+        return 14;
     }
 
     puts("musa-smoke ok");
