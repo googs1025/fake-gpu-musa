@@ -30,3 +30,13 @@ output/*
 build.sh
 *.tar
 charts/fake-gpu/files/*
+
+# Local agent / planning artifacts
+.claude/
+PLAN_REVIEW.md
+
+# Built binaries at repo root (Go cmd outputs)
+/device-injector
+/fake-mthreads-device-plugin
+/mthreads-gmi
+/nvidia-smi
