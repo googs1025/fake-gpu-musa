@@ -13,7 +13,9 @@ The `fake-gpu` project is designed to simulate GPU information, making it easier
 - Supports CUDA Driver, CUDA Runtime, NVML API
 - Supports nvidia-smi
 - Supports DCGM-Exporter
-- Supports Moore Threads MUSA GPUs (see [docs/musa.md](docs/musa.md))
+- Supports Moore Threads MUSA GPUs — MUSA Driver, MUSA Runtime, MTML API, `mthreads-gmi`
+- Ships a `fake-mthreads-device-plugin` for the MThreads path so HAMi-style scheduling works without the closed-source plugin
+- See [docs/musa.md](docs/musa.md) for the MUSA user guide, [docs/mthreads-support-design.md](docs/mthreads-support-design.md) for the design, and [docs/architecture.md](docs/architecture.md) for the overall architecture (中文)
 
 ## Requirements
 
@@ -105,6 +107,69 @@ kubectl exec -it fake-gpu -- nvidia-smi
 +---------------------------------------------------------------------------------------+
 ```
 
+
+## Moore Threads (MUSA) Support
+
+`fake-gpu` ships a parallel MThreads path that fakes the MUSA stack the same way the NVIDIA path fakes CUDA. The same `libfakegpu.so` is bind-mounted as `libmusa.so`, `libmusart.so`, and `libmtml.so` inside the container, and a fake `mthreads-gmi` is mounted alongside it.
+
+### Components added for MThreads
+
+- **MUSA / MUSA Runtime / MTML hooks** under `src/musa/`, `src/musart/`, `src/mtml/` — compiled into the same `libfakegpu.so`
+- **`mthreads-gmi` CLI** (`cmd/mthreads-gmi`) — output mimics the real tool, including the table layout
+- **`fake-mthreads-device-plugin`** (`cmd/fake-mthreads-device-plugin`) — advertises `mthreads.com/vgpu`, `mthreads.com/sgpu-core`, `mthreads.com/sgpu-memory` to kubelet so HAMi can schedule against fake cards
+- **`device-injector --vendor=mthreads`** path — reads HAMi's `mthreads.com/gpu-index` annotation and exports `MUSA_VISIBLE_DEVICES` plus the right bind-mounts
+- **MUSA YAML configs** under `conf/`:
+  - `fake-musa.yaml` — single MTT S80
+  - `fake-musa-s80x8.yaml` — 8× S80 across two NUMA nodes
+  - `fake-musa-s4000x4.yaml` — 4× MTT S4000 (48 GiB, mpc=4)
+  - `fake-musa-busy.yaml` — mixed load (idle / light / heavy / saturated)
+
+### Deploy in MThreads mode
+
+```shell
+helm install fake-gpu fake-gpu-charts/fake-gpu -n kube-system \
+  --set vendor=mthreads \
+  --set mthreads.devicePlugin.enabled=true
+```
+
+Use [HAMi](https://github.com/Project-HAMi/HAMi) as the scheduler/mutator. In production the MThreads closed-source device-plugin handles `Allocate`; in fake environments `fake-mthreads-device-plugin` replaces it.
+
+### Use the fake MThreads GPU
+
+```yaml
+apiVersion: v1
+kind: Pod
+metadata:
+  name: musa-demo
+  annotations:
+    mthreads.com/gpu-index: "0"
+spec:
+  containers:
+  - name: shell
+    image: ubuntu:22.04
+    command: ["sleep", "infinity"]
+    resources:
+      limits:
+        mthreads.com/vgpu: 1
+```
+
+```shell
+kubectl exec -it musa-demo -- mthreads-gmi
+Sun May 17 16:33:00 2026
+---------------------------------------------------------------
+    mthreads-gmi:1.14.0          Driver Version:2.7.0
+---------------------------------------------------------------
+ID   Name           |PCIe                |%GPU  Mem
+     Device Type    |Pcie Lane Width     |Temp  MPC Capable
+                    |                    |      ECC Mode
++-------------------------------------------------------------+
+0    MTT S80        |0000:00:1F.0        |0%    0MiB(16384MiB)
+     Physical       |16x(16x)            |45C   NO
+                                         |      N/A
+---------------------------------------------------------------
+```
+
+For multi-card setups, load a different config (e.g. `conf/fake-musa-s80x8.yaml`) into the `fake-gpu` ConfigMap and request multiple cards via `mthreads.com/vgpu: 8` plus a comma-separated `mthreads.com/gpu-index` annotation. See [docs/musa.md](docs/musa.md) for the full walk-through.
 
 ## Compilation
 
