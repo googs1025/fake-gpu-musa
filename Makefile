@@ -68,16 +68,21 @@ nvidia-smi:
 mthreads-gmi:
 	$(GO) build -o ${OUTPUT_DIR}/bin/mthreads-gmi ./cmd/mthreads-gmi/main.go
 
-# T6/T7 smoke binary: dlopen libfakegpu.so and assert MUSA stubs return error codes.
+# T2/T3 and T6/T7 smoke binaries: dlopen libfakegpu.so and assert that the
+# CUDA / MUSA stubs return their documented "fail loud" error codes.
 musa-smoke:
 	@mkdir -p ${OUTPUT_DIR}/bin
 	$(CC) -o ${OUTPUT_DIR}/bin/musa-smoke scripts/musa-smoke.c -ldl
+
+cuda-smoke:
+	@mkdir -p ${OUTPUT_DIR}/bin
+	$(CC) -o ${OUTPUT_DIR}/bin/cuda-smoke scripts/cuda-smoke.c -ldl
 
 # T1-T9 dual-coverage matrix (NVIDIA + MTHREADS paths). T1-T7 auto-skip when
 # the native libfakegpu.so isn't built (e.g. on macOS dev hosts); T8/T9 always
 # run as Go unit tests.
 .PHONY: test-dual
-test-dual:
+test-dual: cuda-smoke musa-smoke
 	bash scripts/dual-coverage.sh
 
 images: docker-build

@@ -105,6 +105,7 @@ const (
 	colName = 15 // "MTT S4000      "
 	colPCI  = 20 // "00000000:12:00.0    "
 	colGPU  = 6  // "100%  "
+	colMem  = 15 // "4MiB(49152MiB) " — pads to 63-char rule width
 )
 
 func render(w io.Writer, driver string, gpus []common.GPU) {
@@ -115,14 +116,14 @@ func render(w io.Writer, driver string, gpus []common.GPU) {
 	fmt.Fprintln(w, rule)
 	fmt.Fprintf(w, "    mthreads-gmi:%s          Driver Version:%s\n", gmiVersion, driver)
 	fmt.Fprintln(w, rule)
-	fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%s\n",
-		colID, "ID", colName, "Name", colPCI, "PCIe", colGPU, "%GPU", "Mem")
-	fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%s\n",
-		colID, "", colName, "Device Type", colPCI, "Pcie Lane Width", colGPU, "Temp", "MPC Capable")
+	fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%-*s\n",
+		colID, "ID", colName, "Name", colPCI, "PCIe", colGPU, "%GPU", colMem, "Mem")
+	fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%-*s\n",
+		colID, "", colName, "Device Type", colPCI, "Pcie Lane Width", colGPU, "Temp", colMem, "MPC Capable")
 	// Third row drops the first pipe so the PCIe column reads as one
 	// continuous blank — matches real mthreads-gmi output.
-	fmt.Fprintf(w, "%-*s%-*s %-*s|%-*s%s\n",
-		colID, "", colName, "", colPCI, "", colGPU, "", "ECC Mode")
+	fmt.Fprintf(w, "%-*s%-*s %-*s|%-*s%-*s\n",
+		colID, "", colName, "", colPCI, "", colGPU, "", colMem, "ECC Mode")
 	fmt.Fprintln(w, plus)
 	for _, g := range gpus {
 		mem := fmt.Sprintf("%dMiB(%dMiB)", g.UsedMem/1024/1024, g.TotalMem/1024/1024)
@@ -130,14 +131,17 @@ func render(w io.Writer, driver string, gpus []common.GPU) {
 		if g.MpcCapable {
 			mpc = "YES"
 		}
+		// Real mthreads-gmi quirk: only the first data row leaves the Mem
+		// cell unpadded (62-char line). Rows 2 and 3 still pad to colMem
+		// so the table's right edge stays flush.
 		fmt.Fprintf(w, "%-*d%-*s|%-*s|%-*s%s\n",
 			colID, g.Idx, colName, g.Name, colPCI, g.BusID,
 			colGPU, fmt.Sprintf("%d%%", g.Util), mem)
-		fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%s\n",
+		fmt.Fprintf(w, "%-*s%-*s|%-*s|%-*s%-*s\n",
 			colID, "", colName, deviceType, colPCI, pcieLaneWidth,
-			colGPU, fmt.Sprintf("%dC", g.TempC), mpc)
-		fmt.Fprintf(w, "%-*s%-*s %-*s|%-*s%s\n",
-			colID, "", colName, "", colPCI, "", colGPU, "", eccMode)
+			colGPU, fmt.Sprintf("%dC", g.TempC), colMem, mpc)
+		fmt.Fprintf(w, "%-*s%-*s %-*s|%-*s%-*s\n",
+			colID, "", colName, "", colPCI, "", colGPU, "", colMem, eccMode)
 	}
 	fmt.Fprintln(w, rule)
 	fmt.Fprintln(w)

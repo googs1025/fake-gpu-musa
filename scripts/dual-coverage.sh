@@ -4,8 +4,8 @@
 # and docs/mthreads-support-design.md §7.0.
 #
 # T1  NVIDIA   nvidia-smi                                     >= 1 GPU row
-# T2  NVIDIA   CUDA Driver smoke (cuInit + cuDeviceGetCount)  count == yaml
-# T3  NVIDIA   CUDA Runtime smoke (vectorAdd)                 exits 0
+# T2  NVIDIA   CUDA Driver smoke (cuInit + cuDeviceGetCount)  returns INVALID_VALUE
+# T3  NVIDIA   CUDA Runtime smoke (cudaSetDevice + MemInfo)   returns invalidValue
 # T4  MTHREADS mthreads-gmi                                   >= 1 GPU row
 # T5  MTHREADS mthreads-gmi row count matches fake-musa.yaml  count == yaml
 # T6  MTHREADS muInit + muDeviceGetCount + muMemGetInfo_v2    stub errors
@@ -66,14 +66,15 @@ if [ "$HAVE_NATIVE" = 1 ]; then
     fail T1
   fi
 
-  # T2/T3: vectorAdd exercises both Driver and Runtime hooks. The binary
-  # comes from the CUDA SDK samples (not vendored), so skip cleanly when
-  # absent rather than failing the whole suite — every other test still
-  # gives signal on this host.
-  printf 'T2/T3: vectorAdd CUDA Driver+Runtime ... '
-  if [ ! -x "$BIN/vectorAdd" ]; then
-    skip T2/T3 "vectorAdd binary not present (CUDA SDK sample)"
-  elif LD_PRELOAD="$LIB" "$BIN/vectorAdd" >/dev/null 2>&1; then
+  # T2/T3: cuda-smoke is a symmetric counterpart to musa-smoke — it dlopens
+  # libfakegpu.so and pins the "fail loud" contract for the CUDA Driver
+  # (cuInit + cuDeviceGetCount) and Runtime (cudaSetDevice + cudaMemGetInfo)
+  # hooks. Build on demand so devs don't need to remember the make target.
+  if [ ! -x "$BIN/cuda-smoke" ]; then
+    "${CC:-cc}" -o "$BIN/cuda-smoke" scripts/cuda-smoke.c -ldl
+  fi
+  printf 'T2/T3: cuda-smoke (driver + runtime error codes) ... '
+  if LIB="$LIB" "$BIN/cuda-smoke" >/dev/null; then
     pass T2/T3
   else
     fail T2/T3
