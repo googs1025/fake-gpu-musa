@@ -1,50 +1,50 @@
 # fake-gpu
 
-[English](./README.en.md) | 中文
+English | [中文](./README.md)
 
-> 没有物理 GPU 也能跑通 Moore Threads MUSA 和 NVIDIA CUDA 软件栈、运维工具和 HAMi 调度链路的测试工具。
+> A testing tool that lets you exercise Moore Threads MUSA and NVIDIA CUDA software stacks, ops tooling, and HAMi scheduling without physical GPUs.
 
-## 项目简介
+## Overview
 
-`fake-gpu` 用一份 YAML 模拟 GPU 的全部用户态接口，通过 containerd NRI 自动注入到目标容器，让没有真卡的环境也能跑通完整的 GPU 链路。它提供两条**对等**的仿真路径：
+`fake-gpu` simulates the full user-space surface of a GPU from a single YAML config and bind-mounts the fake into target containers via containerd NRI. It ships **two peer paths**:
 
-- **Moore Threads（MUSA）路径**：MUSA Driver / MUSA Runtime / MTML + `mthreads-gmi`
-- **NVIDIA 路径**：CUDA Driver / CUDA Runtime / NVML + `nvidia-smi`
+- **Moore Threads (MUSA)**: MUSA Driver / MUSA Runtime / MTML + `mthreads-gmi`
+- **NVIDIA**: CUDA Driver / CUDA Runtime / NVML + `nvidia-smi`
 
-两条路径共用同一份 `libfakegpu.so`，通过 bind-mount 到不同的 SONAME 切换形态。典型用途：
+Both paths share the same `libfakegpu.so`, switched by bind-mounting the library under different SONAMEs. Typical uses:
 
-- 跑 `mthreads-gmi` / `nvidia-smi` / DCGM 类监控工具
-- 联调依赖 MUSA 或 CUDA 用户态库的应用
-- 完整走通 HAMi 的 mutator + scheduler + device-plugin 链路
-- 调度器、Operator、CRD、CI 流水线的 GPU 相关功能验证
+- Run `mthreads-gmi` / `nvidia-smi` / DCGM-style monitoring stacks
+- Integration-test apps that depend on MUSA or CUDA user-space libraries
+- Walk the full HAMi mutator + scheduler + device-plugin chain end-to-end
+- Validate schedulers, operators, CRDs, and CI pipelines that touch GPUs
 
-> 这是测试工具，**不会真正执行 MUSA / CUDA 计算 kernel**。
+> This is a testing tool. It **does not run real MUSA / CUDA compute kernels**.
 
-## 主要能力
+## Features
 
-- 通过 YAML 配置文件描述 GPU 拓扑、显存、利用率、功耗等指标
-- 支持 **MUSA Driver / Runtime / MTML API** 与 `mthreads-gmi`
-- 支持 **CUDA Driver / Runtime / NVML API** 与 `nvidia-smi`
-- 支持 DCGM-Exporter
-- 自带 `fake-mthreads-device-plugin`，向 kubelet 注册 `mthreads.com/vgpu` / `sgpu-core` / `sgpu-memory`，可替换 MThreads 闭源 device-plugin 用于测试
-- 兼容 [HAMi](https://github.com/Project-HAMi/HAMi)：MUSA 路径下 annotation `mthreads.com/gpu-index` 直通到 hook 的 `MUSA_VISIBLE_DEVICES`
-- 对应用代码零侵入，纯 bind-mount 注入
+- YAML-driven GPU topology: memory, utilization, power, PCIe, NUMA, MTLink
+- **MUSA Driver / Runtime / MTML API** support + `mthreads-gmi`
+- **CUDA Driver / Runtime / NVML API** support + `nvidia-smi`
+- DCGM-Exporter support
+- Bundled `fake-mthreads-device-plugin` that advertises `mthreads.com/vgpu` / `sgpu-core` / `sgpu-memory` to kubelet, standing in for the closed-source MThreads plugin during testing
+- Works with [HAMi](https://github.com/Project-HAMi/HAMi): on the MUSA path, the `mthreads.com/gpu-index` annotation flows through to the hook's `MUSA_VISIBLE_DEVICES`
+- Zero-touch for application code — pure bind-mount injection
 
-## 依赖
+## Requirements
 
-- containerd ≥ 1.7.0（必须启用 NRI）
-- Kubernetes 集群
+- containerd ≥ 1.7.0 (NRI must be enabled)
+- A Kubernetes cluster
 
-## 部署
+## Deploy
 
-### 安装 Helm chart
+### Install the Helm chart
 
 ```shell
 helm repo add fake-gpu-charts https://chaunceyjiang.github.io/fake-gpu
 helm repo update
 ```
 
-#### Moore Threads（MUSA）模式
+#### Moore Threads (MUSA) mode
 
 ```shell
 helm install fake-gpu fake-gpu-charts/fake-gpu -n kube-system \
@@ -52,30 +52,30 @@ helm install fake-gpu fake-gpu-charts/fake-gpu -n kube-system \
   --set mthreads.devicePlugin.enabled=true
 ```
 
-#### NVIDIA 模式（默认）
+#### NVIDIA mode (default)
 
 ```shell
 helm install fake-gpu fake-gpu-charts/fake-gpu -n kube-system
 ```
 
-### 配套 device-plugin
+### Companion device-plugin
 
-二选一，推荐 HAMi：
+Pick one (HAMi recommended):
 
 ```shell
-# 推荐：HAMi（同时支持 NVIDIA 与 MThreads）
+# Recommended: HAMi (supports both NVIDIA and MThreads)
 helm repo add hami-charts https://project-hami.github.io/HAMi/
 helm install hami hami-charts/hami -n kube-system
 
-# 或：NVIDIA 官方 device-plugin（仅 NVIDIA 路径）
+# Or: NVIDIA official device-plugin (NVIDIA path only)
 kubectl create -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.17.0/deployments/static/nvidia-device-plugin.yml
 ```
 
-> 生产环境中 MThreads 路径的 `Allocate` 由闭源 device-plugin 负责；在 fake 环境下，`fake-mthreads-device-plugin` 顶替闭源插件，让整条 HAMi 链路自洽。
+> In production, the MThreads path's `Allocate` is handled by the closed-source device-plugin. In fake environments, `fake-mthreads-device-plugin` replaces it so the HAMi chain stays consistent.
 
-## 使用示例
+## Usage
 
-### Moore Threads（MUSA）
+### Moore Threads (MUSA)
 
 ```yaml
 apiVersion: v1
@@ -110,16 +110,16 @@ ID   Name           |PCIe                |%GPU  Mem
 ---------------------------------------------------------------
 ```
 
-`conf/` 下提供了几种现成场景，通过更新 ConfigMap 即可热替换：
+Ready-made topologies under `conf/`, hot-swappable via the ConfigMap:
 
-| 配置文件                       | 拓扑                                                |
-| ------------------------------ | --------------------------------------------------- |
-| `conf/fake-musa.yaml`          | 单卡 MTT S80                                        |
-| `conf/fake-musa-s80x8.yaml`    | 8× MTT S80，跨两个 NUMA node                        |
-| `conf/fake-musa-s4000x4.yaml`  | 4× MTT S4000，48 GiB 显存，`mpc_count=4`           |
-| `conf/fake-musa-busy.yaml`     | 4× S80 混合负载（idle / light / heavy / saturated）|
+| Config                          | Topology                                              |
+| ------------------------------- | ----------------------------------------------------- |
+| `conf/fake-musa.yaml`           | single MTT S80                                        |
+| `conf/fake-musa-s80x8.yaml`     | 8× MTT S80, split across two NUMA nodes              |
+| `conf/fake-musa-s4000x4.yaml`   | 4× MTT S4000, 48 GiB memory, `mpc_count=4`           |
+| `conf/fake-musa-busy.yaml`      | 4× S80 mixed load (idle / light / heavy / saturated) |
 
-详细用法见 [docs/musa.md](docs/musa.md)。
+See [docs/musa.md](docs/musa.md) for the full walk-through.
 
 ### NVIDIA
 
@@ -160,7 +160,7 @@ kubectl exec -it fake-gpu -- nvidia-smi
 +---------------------------------------------------------------------------------------+
 ```
 
-## 从源码编译
+## Build from source
 
 ```shell
 make docker-build IMAGE_VERSION=v0.2.0
@@ -173,19 +173,19 @@ helm template charts/fake-gpu \
 kubectl apply -f install.yaml
 ```
 
-## 文档
+## Documentation
 
-- [docs/architecture.md](docs/architecture.md) — 整体架构（中文，含 ASCII 架构图）
-- [docs/mthreads-support-design.md](docs/mthreads-support-design.md) — MThreads 支持设计文档
-- [docs/musa.md](docs/musa.md) — MUSA 使用指南
+- [docs/architecture.md](docs/architecture.md) — Overall architecture (Chinese, ASCII diagrams)
+- [docs/mthreads-support-design.md](docs/mthreads-support-design.md) — MThreads support design
+- [docs/musa.md](docs/musa.md) — MUSA user guide
 
-## 贡献
+## Contributing
 
-欢迎以 issue / PR 的形式参与：
+Issues and PRs are welcome:
 
-1. Fork 仓库
-2. 基于 `main` 切出 feature 分支
-3. 提交带有清晰 commit message 的修改
-4. 推到自己的 fork 后向上游发起 PR
+1. Fork the repository
+2. Create a feature branch off `main`
+3. Commit with clear commit messages
+4. Push to your fork and open a PR against the upstream
 
-请确保改动通过现有测试，并遵循仓库的编码风格。
+Please make sure your changes pass the existing tests and follow the repo's style.
