@@ -48,7 +48,7 @@ helm repo update
 
 ```shell
 helm install fake-gpu fake-gpu-charts/fake-gpu -n kube-system \
-  --set vendor=mthreads \
+  --set vendor=musa \
   --set mthreads.devicePlugin.enabled=true
 ```
 

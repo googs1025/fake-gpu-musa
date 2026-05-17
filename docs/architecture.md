@@ -242,7 +242,7 @@ moorethreads:                # 或 nvidia:
 - **ConfigMap**：装载 `fake-gpu.yaml` / `fake-musa.yaml`
 - **NRI ConfigMap**：可选自动写 `/etc/nri/conf.d/`
 - **fake-mthreads-device-plugin DaemonSet**：仅当 `mthreads.devicePlugin.enabled=true` 时部署
-- 通过 `values.yaml` 的 `vendor` 字段（`nvidia` / `mthreads`）选路径
+- 通过 `values.yaml` 的 `vendor` 字段（`nvidia` / `musa` / `both`）选路径，`both` 仍按容器维度互斥
 
 ---
 
@@ -319,9 +319,9 @@ helm repo update
 # NVIDIA 模式（默认）
 helm install fake-gpu fake-gpu-charts/fake-gpu -n kube-system
 
-# MThreads 模式
+# MThreads（MUSA）模式
 helm install fake-gpu fake-gpu-charts/fake-gpu -n kube-system \
-  --set vendor=mthreads \
+  --set vendor=musa \
   --set mthreads.devicePlugin.enabled=true
 ```
 
