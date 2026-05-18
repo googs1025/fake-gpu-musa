@@ -16,6 +16,9 @@ moorethreads:
     utilization:
       gpu: 0
       memory: 0
+    # memory.used = total - free。该值还会被 mthreads-gmi 反推成
+    # "Processes:" 表里那行的 GPU Memory Usage (PID 固定 1)。
+    # used = 0 时该卡不出现在 Processes 块。详见 docs/musa.md。
     memory:
       total: 17179869184    # 16 GiB
       free:  17179869184

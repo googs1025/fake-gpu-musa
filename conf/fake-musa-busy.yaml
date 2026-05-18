@@ -5,6 +5,10 @@
 #
 # Note: temperature is hardcoded to 45°C in src/mtml/mtml_hook.cpp; the
 # `temp:` field below is a placeholder for a future yaml-driven change.
+#
+# 副作用提醒: memory.used > 0 的卡 (这里是 1/2/3) 会同时出现在 mthreads-gmi
+# 的 "Processes:" 表里 (PID 固定 1, name 从 /proc/1/cmdline 读, 详见 docs/musa.md)。
+# 卡 0 因 used=0 不出现。
 moorethreads:
   - name: MTT S80
     uuid: MTGPU-0

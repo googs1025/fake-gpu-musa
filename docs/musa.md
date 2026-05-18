@@ -89,6 +89,18 @@ FAKE_MUSA_CONFIG=$PWD/conf/fake-musa.yaml \
 
 期望输出：一行 `MTT S80`、`MTGPU-0`、`0 MiB / 16384 MiB`、`0%`。
 
+## `Processes:` 块如何渲染
+
+`mthreads-gmi` 末尾的 `Processes:` 表**完全由 YAML 中的 `memory.used` 反推**，不来自任何真实进程枚举：
+
+- MTML 2.2.0 公开头 (`src/common/mtml_2.2.0.h`) 中并不存在 GPU compute 进程查询 API，所以这块没有 C stub，全部在 `pkg/mthreads/root.go` 的 `collectProcesses` 里合成。
+- 渲染规则：
+  - 凡 `memory.used > 0`（即 `total - free > 0`）的卡，输出一行 process，`PID` 固定为 `1`，`Process name` 取自容器内 `/proc/1/cmdline`，`GPU Memory Usage` 等于该卡的 `memory.used`。
+  - `memory.used == 0` 的卡跳过，与真实 `mthreads-gmi` 空闲态一致。
+  - 所有卡都空闲时回退到 `No running processes found`。
+- 想演示"卡 1 有负载、其它空闲"，编辑 `memory.free` 让 `total - free` 大于 0 即可（如 `conf/fake-musa-busy.yaml`）；想隐藏进程行，把所有卡的 `free` 设回 `total`。
+- **没有 CLI flag 控制** —— 这是刻意的简化，不模拟"一张卡多进程"等真实复杂度。如有需求请在 issue 中提出。
+
 ## 符号来源
 
 - `src/common/mtml_2.2.0.h` 来自 [`MooreThreads/mthreads-ml-py`](https://github.com/MooreThreads/mthreads-ml-py)
