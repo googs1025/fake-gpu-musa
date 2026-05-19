@@ -29,7 +29,19 @@ jobs:
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
           mkdir -p $CHARTS_DIR/files
           cp conf/fake-gpu.yaml $CHARTS_DIR/files/fake-gpu.yaml
+
+      - name: Check gh-pages branch exists
+        id: gh_pages
+        run: |
+          if git ls-remote --exit-code --heads origin gh-pages >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "gh-pages branch not found on origin — skipping chart-releaser."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run chart-releaser
+        if: steps.gh_pages.outputs.exists == 'true'
         uses: helm/chart-releaser-action@v1.7.0
         with:
           config: .github/chart-releaser.yaml

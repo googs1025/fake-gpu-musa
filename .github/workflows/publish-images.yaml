@@ -29,17 +29,20 @@ jobs:
       - name: Build images
         run: |
           sed -i '6,7d' Dockerfile
-          make images BUILD_TYPE=Release
+          IMAGE_REPOSITORY=$(echo "${{ env.REGISTRY_USER }}" | tr '[:upper:]' '[:lower:]')
+          make images BUILD_TYPE=Release IMAGE_REPOSITORY="$IMAGE_REPOSITORY"
 
       - name: Log in to registry
         run: |
+          REGISTRY_USER_LC=$(echo "${{ env.REGISTRY_USER }}" | tr '[:upper:]' '[:lower:]')
           echo "${{ secrets.GITHUB_TOKEN }}" | \
-              docker login ${{ env.REGISTRY }} -u ${{ env.REGISTRY_USER }} --password-stdin
+              docker login ${{ env.REGISTRY }} -u "$REGISTRY_USER_LC" --password-stdin
 
       - name: Push images
         run: |
           GITREF=${{ github.ref }}
-          IMAGE_LOCATION=${{ env.REGISTRY }}/${{ env.REGISTRY_USER }}
+          REGISTRY_USER_LC=$(echo "${{ env.REGISTRY_USER }}" | tr '[:upper:]' '[:lower:]')
+          IMAGE_LOCATION=${{ env.REGISTRY }}/$REGISTRY_USER_LC
           img=fake-gpu
           cd output/
           echo "- Publishing image for tarball $img..."
@@ -62,5 +65,5 @@ jobs:
                   ;;
           esac
           echo "  - tag: $tag"
-          docker tag ${{ env.REGISTRY_USER }}/$img $IMAGE_LOCATION/$img:$tag
+          docker tag $REGISTRY_USER_LC/$img $IMAGE_LOCATION/$img:$tag
           docker push $IMAGE_LOCATION/$img:$tag

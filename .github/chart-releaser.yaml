@@ -1,3 +1,1 @@
-owner: chaunceyjiang
-git-repo: fake-gpu
 release-name-template: "{{ .Version }}"
