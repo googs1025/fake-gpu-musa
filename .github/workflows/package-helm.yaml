@@ -108,8 +108,9 @@ jobs:
 
       - name: Log In To Registry
         run: |
+          REGISTRY_USER_LC=$(echo "${{ env.REGISTRY_USER }}" | tr '[:upper:]' '[:lower:]')
           echo "${{ secrets.GITHUB_TOKEN }}" | \
-              helm registry login ${{ env.REGISTRY }}/${{ env.REGISTRY_PATH }} -u ${{ env.REGISTRY_USER }} --password-stdin
+              helm registry login ${{ env.REGISTRY }} -u "$REGISTRY_USER_LC" --password-stdin
 
       - name: Push Unstable Helm Charts To Registry
         shell: bash
@@ -118,8 +119,9 @@ jobs:
           #   Currently we only publish unstable Helm charts from main/HEAD.
           #   We have no active cleanup of old unstable charts in place. In
           #   between new tags unstable chart have the same version, though.
+          REGISTRY_PATH_LC=$(echo "${{ env.REGISTRY_PATH }}" | tr '[:upper:]' '[:lower:]')
           pushd $UNSTABLE_CHARTS
           for i in ./*.tgz; do
-              helm push $i oci://${{ env.REGISTRY }}/${{ env.REGISTRY_PATH }}/helm-charts
+              helm push $i oci://${{ env.REGISTRY }}/$REGISTRY_PATH_LC/helm-charts
           done
           popd
